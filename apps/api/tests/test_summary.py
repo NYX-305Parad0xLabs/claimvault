@@ -35,25 +35,24 @@ async def _create_case(async_client, headers, claim_type="refund"):
 
 
 @pytest.mark.asyncio
-async def test_summary_preview_returns_refund_template(async_client):
+@pytest.mark.parametrize(
+    "claim_type, heading",
+    [
+        ("refund", "## Refund focus"),
+        ("warranty", "## Warranty focus"),
+        ("chargeback_prep", "## Chargeback prep focus"),
+        ("shipment_damage", "## Shipment damage focus"),
+        ("rental_deposit", "## Rental deposit focus"),
+    ],
+)
+async def test_summary_preview_claim_templates(async_client, claim_type, heading):
     headers = await _auth_headers(async_client)
-    case = await _create_case(async_client, headers, claim_type="refund")
+    case = await _create_case(async_client, headers, claim_type=claim_type)
     response = await async_client.get(
         f"/api/cases/{case['id']}/summary-preview", headers=headers
     )
     assert response.status_code == 200
     payload = response.json()
-    assert payload["claim_type"] == "refund"
-    assert "## Refund focus" in payload["summary"]
-
-
-@pytest.mark.asyncio
-async def test_summary_preview_includes_warranty_section(async_client):
-    headers = await _auth_headers(async_client)
-    case = await _create_case(async_client, headers, claim_type="warranty")
-    response = await async_client.get(
-        f"/api/cases/{case['id']}/summary-preview", headers=headers
-    )
-    assert response.status_code == 200
-    payload = response.json()
-    assert "## Warranty focus" in payload["summary"]
+    assert payload["claim_type"] == claim_type
+    assert heading in payload["summary"]
+    assert "## Readiness check" in payload["summary"]

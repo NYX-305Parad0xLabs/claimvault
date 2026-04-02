@@ -3,7 +3,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Callable, Sequence
 
-from app.models.claim import ClaimType, Case, EvidenceItem, TimelineEvent
+from app.models.claim import (
+    Case,
+    ClaimType,
+    CounterpartyProfile,
+    EvidenceItem,
+    TimelineEvent,
+)
+from app.schemas.readiness import ReadinessReport
 
 
 class CaseSummaryBuilder:
@@ -12,51 +19,114 @@ class CaseSummaryBuilder:
         case: Case,
         evidence: Sequence[EvidenceItem],
         timeline: Sequence[TimelineEvent],
+        readiness: ReadinessReport,
+        counterparty: CounterpartyProfile | None,
     ) -> str:
         sorted_timeline = self._sort_timeline(timeline)
-        evidence_count = len(evidence)
-        timeline_count = len(sorted_timeline)
         lines: list[str] = [
-            f"# Case Export: {case.title}",
+            f"# ClaimVault Case summary — {case.title}",
             "",
+            "## Case details",
             f"- Claim ID: {case.id}",
-            f"- Claim Type: {case.claim_type.value}",
+            f"- Claim type: {case.claim_type.value}",
             f"- Status: {case.status.value}",
-            f"- Merchant: {case.merchant_name or 'N/A'}",
-            f"- Counterparty: {case.counterparty_name or 'N/A'}",
-            f"- Order Reference: {case.order_reference or 'N/A'}",
+            f"- Merchant: {case.merchant_name or 'Unrecorded merchant'}",
+            f"- Counterparty: {case.counterparty_name or 'Not recorded'}",
+            f"- Order reference: {case.order_reference or 'Not captured'}",
             f"- Amount: {case.amount_value} {case.amount_currency}",
-            f"- Purchase Date: {self._format_date(case.purchase_date)}",
-            f"- Incident Date: {self._format_date(case.incident_date)}",
-            f"- Due Date: {self._format_date(case.due_date)}",
-            f"- Evidence Pieces: {evidence_count}",
-            f"- Timeline Events: {timeline_count}",
+            f"- Purchase date: {self._format_date(case.purchase_date)}",
+            f"- Incident date: {self._format_date(case.incident_date)}",
+            f"- Due date: {self._format_date(case.due_date)}",
             "",
-            "## Summary",
-            case.summary or "No summary provided.",
-            "",
+            "## Narrative",
+            case.summary or "No narrative recorded yet.",
         ]
-        lines.extend(self._render_claim_section(case, evidence, sorted_timeline))
+        lines.extend(self._render_counterparty_section(case, counterparty))
+        lines.extend(self._render_readiness_section(readiness))
+        lines.extend(self._render_claim_section(case, evidence, sorted_timeline, readiness, counterparty))
         lines.extend(self._render_evidence_section(evidence))
         lines.extend(self._render_timeline_section(sorted_timeline))
         lines.extend(
             [
                 "",
-                "## Export Notes",
-                "- Timeline entries are ordered chronologically in the exported bundle.",
-                "- Evidence files live in the `evidence/` folder with sanitized filenames.",
+                "## Export notes",
+                "- Timeline entries and evidence filenames are preserved in export bundles.",
+                "- This summary is deterministic and reflects the current readiness state.",
             ]
         )
         return "\n".join(lines)
+
+    def _render_counterparty_section(
+        self,
+        case: Case,
+        counterparty: CounterpartyProfile | None,
+    ) -> list[str]:
+        lines = ["", "## Counterparty context"]
+        if counterparty:
+            lines.extend(
+                [
+                    f"- Name: {counterparty.name}",
+                    f"- Type: {counterparty.profile_type.value}",
+                    f"- Website: {counterparty.website or 'Not provided'}",
+                    f"- Support email: {counterparty.support_email or 'Not provided'}",
+                    f"- Support URL: {counterparty.support_url or 'Not provided'}",
+                    f"- Notes: {counterparty.notes or 'No additional notes'}",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    f"- Manual entry: {case.counterparty_name or 'Not recorded'}",
+                    "- Add a counterparty profile to capture verified support details.",
+                ]
+            )
+        return lines
+
+    def _render_readiness_section(self, readiness: ReadinessReport) -> list[str]:
+        lines = [
+            "",
+            "## Readiness check",
+            f"- Score: {readiness.score}/100",
+        ]
+        lines.append(
+            "- Blockers:"
+            if readiness.blockers
+            else "- Blockers: none identified"
+        )
+        if readiness.blockers:
+            for blocker in readiness.blockers:
+                lines.append(f"  - {blocker}")
+        lines.append(
+            "- Missing required items:"
+            if readiness.missing
+            else "- Missing required items: none"
+        )
+        if readiness.missing:
+            for item in readiness.missing:
+                lines.append(f"  - {item}")
+        lines.append(
+            "- Recommended enhancements:"
+            if readiness.recommended
+            else "- Recommended enhancements: none"
+        )
+        if readiness.recommended:
+            for item in readiness.recommended:
+                lines.append(f"  - {item}")
+        return lines
 
     def _render_claim_section(
         self,
         case: Case,
         evidence: Sequence[EvidenceItem],
         timeline: Sequence[TimelineEvent],
+        readiness: ReadinessReport,
+        counterparty: CounterpartyProfile | None,
     ) -> list[str]:
-        renderer = self._claim_renderers().get(case.claim_type, self._default_claim_section)
-        return renderer(case, evidence, timeline)
+        renderer = self._claim_renderers().get(
+            case.claim_type,
+            self._default_claim_section,
+        )
+        return renderer(case, evidence, timeline, readiness, counterparty)
 
     @staticmethod
     def _sort_timeline(events: Sequence[TimelineEvent]) -> list[TimelineEvent]:
@@ -86,137 +156,165 @@ class CaseSummaryBuilder:
             return "None recorded"
         return ", ".join(sorted(str(kind) for kind in kinds))
 
-    @staticmethod
-    def _format_timeline_intro(events: Sequence[TimelineEvent]) -> str:
-        return f"Latest entry: {CaseSummaryBuilder._latest_timeline_event(events)}"
-
     def _claim_renderers(
         self,
     ) -> dict[
         ClaimType,
-        Callable[[Case, Sequence[EvidenceItem], Sequence[TimelineEvent]], list[str]],
+        Callable[
+            [Case, Sequence[EvidenceItem], Sequence[TimelineEvent], ReadinessReport, CounterpartyProfile | None],
+            list[str],
+        ],
     ]:
         return {
-            ClaimType.REFUND: CaseSummaryBuilder._render_refund_section,
-            ClaimType.WARRANTY: CaseSummaryBuilder._render_warranty_section,
-            ClaimType.CHARGEBACK_PREP: CaseSummaryBuilder._render_chargeback_section,
-            ClaimType.SHIPMENT_DAMAGE: CaseSummaryBuilder._render_shipment_section,
-            ClaimType.RENTAL_DEPOSIT: CaseSummaryBuilder._render_rental_section,
+            ClaimType.REFUND: self._render_refund_section,
+            ClaimType.WARRANTY: self._render_warranty_section,
+            ClaimType.CHARGEBACK_PREP: self._render_chargeback_section,
+            ClaimType.SHIPMENT_DAMAGE: self._render_shipment_section,
+            ClaimType.RENTAL_DEPOSIT: self._render_rental_section,
         }
 
-    @classmethod
     def _render_refund_section(
-        cls,
+        self,
         case: Case,
         evidence: Sequence[EvidenceItem],
         timeline: Sequence[TimelineEvent],
+        readiness: ReadinessReport,
+        counterparty: CounterpartyProfile | None,
     ) -> list[str]:
-        return [
+        merchant_label = case.merchant_name or case.counterparty_name or "Unknown merchant"
+        highlight = self._latest_timeline_event(timeline)
+        lines = [
+            "",
             "## Refund focus",
-            f"- Issue & ask: {case.summary or 'Describe the refund or return request'}",
-            f"- Merchant: {case.merchant_name or 'Unknown'}",
+            f"- Issue and ask: {case.summary or 'Describe the refund or return request'}",
+            f"- Merchant: {merchant_label}",
             f"- Order reference: {case.order_reference or 'Not recorded'}",
-            f"- Purchase date: {cls._format_date(case.purchase_date)}",
+            f"- Purchase date: {self._format_date(case.purchase_date)}",
             f"- Amount: {case.amount_value} {case.amount_currency}",
-            f"- Evidence types captured: {cls._format_evidence_kinds(evidence)}",
-            f"- Timeline highlight: {cls._latest_timeline_event(timeline)}",
+            f"- Evidence types: {self._format_evidence_kinds(evidence)}",
+            f"- Timeline highlight: {highlight}",
         ]
+        return lines
 
-    @classmethod
     def _render_warranty_section(
-        cls,
+        self,
         case: Case,
         evidence: Sequence[EvidenceItem],
         timeline: Sequence[TimelineEvent],
+        readiness: ReadinessReport,
+        counterparty: CounterpartyProfile | None,
     ) -> list[str]:
-        return [
+        provider = counterparty.name if counterparty else case.merchant_name or "Manufacturer unknown"
+        highlight = self._latest_timeline_event(timeline)
+        lines = [
+            "",
             "## Warranty focus",
-            f"- Product / merchant: {case.merchant_name or case.counterparty_name or 'Unknown'}",
-            f"- Purchase date: {cls._format_date(case.purchase_date)}",
-            f"- Incident summary: {case.summary or 'Describe the warranty failure'}",
-            "- Supporting invoice, receipt, or photo strengthens the request.",
-            f"- Evidence kinds: {cls._format_evidence_kinds(evidence)}",
+            f"- Product owner: {provider}",
+            f"- Purchase date: {self._format_date(case.purchase_date)}",
+            f"- Incident summary: {case.summary or 'Detail the failure or defect symptoms'}",
+            f"- Evidence types: {self._format_evidence_kinds(evidence)}",
+            f"- Timeline highlight: {highlight}",
         ]
+        return lines
 
-    @classmethod
     def _render_chargeback_section(
-        cls,
+        self,
         case: Case,
         evidence: Sequence[EvidenceItem],
         timeline: Sequence[TimelineEvent],
+        readiness: ReadinessReport,
+        counterparty: CounterpartyProfile | None,
     ) -> list[str]:
-        return [
+        highlight = self._latest_timeline_event(timeline)
+        lines = [
+            "",
             "## Chargeback prep focus",
-            f"- Merchant: {case.merchant_name or 'Unknown'}",
-            f"- Order reference / amount: {case.order_reference or 'TBD'} - {case.amount_value} {case.amount_currency}",
-            f"- Incident date: {cls._format_date(case.incident_date)}",
-            f"- Timeline highlight: {cls._latest_timeline_event(timeline)}",
-            "- Document proof of attempted resolution (messages, emails, receipts).",
+            f"- Merchant: {case.merchant_name or 'Unknown merchant'}",
+            f"- Order reference / amount: {case.order_reference or 'Not set'} / {case.amount_value} {case.amount_currency}",
+            f"- Incident date: {self._format_date(case.incident_date)}",
+            f"- Evidence types: {self._format_evidence_kinds(evidence)}",
+            f"- Timeline highlight: {highlight}",
         ]
+        return lines
 
-    @classmethod
     def _render_shipment_section(
-        cls,
+        self,
         case: Case,
         evidence: Sequence[EvidenceItem],
         timeline: Sequence[TimelineEvent],
+        readiness: ReadinessReport,
+        counterparty: CounterpartyProfile | None,
     ) -> list[str]:
-        return [
+        carrier_label = counterparty.name if counterparty else case.counterparty_name or case.merchant_name or "Carrier unknown"
+        highlight = self._latest_timeline_event(timeline)
+        lines = [
+            "",
             "## Shipment damage focus",
-            f"- Carrier / platform: {case.counterparty_name or case.merchant_name or 'TBD'}",
-            f"- Incident date: {cls._format_date(case.incident_date)}",
-            f"- Expected delivery window closes: {cls._format_date(case.due_date)}",
+            f"- Carrier / platform: {carrier_label}",
+            f"- Incident date: {self._format_date(case.incident_date)}",
+            f"- Delivery window ends: {self._format_date(case.due_date)}",
             "- Highlight tracking updates, delivery timing, and damage photos.",
-            f"- Evidence kinds: {cls._format_evidence_kinds(evidence)}",
+            f"- Evidence types: {self._format_evidence_kinds(evidence)}",
+            f"- Timeline highlight: {highlight}",
         ]
+        return lines
 
-    @classmethod
     def _render_rental_section(
-        cls,
+        self,
         case: Case,
         evidence: Sequence[EvidenceItem],
         timeline: Sequence[TimelineEvent],
+        readiness: ReadinessReport,
+        counterparty: CounterpartyProfile | None,
     ) -> list[str]:
+        landlord_label = counterparty.name if counterparty else case.counterparty_name or "Landlord not set"
         tenancy_window = (
-            f"{cls._format_date(case.purchase_date)} -> {cls._format_date(case.incident_date or case.due_date)}"
+            f"{self._format_date(case.purchase_date)} -> {self._format_date(case.incident_date or case.due_date)}"
         )
-        return [
+        lines = [
+            "",
             "## Rental deposit focus",
-            f"- Landlord / property: {case.counterparty_name or case.merchant_name or 'Unknown'}",
+            f"- Landlord / property: {landlord_label}",
             f"- Tenancy window: {tenancy_window}",
             f"- Dispute summary: {case.summary or 'Describe the condition, deductions, or notices'}",
             "- Include lease notices, move-out photos, condition evidence, and receipts.",
-            f"- Evidence kinds: {cls._format_evidence_kinds(evidence)}",
+            f"- Timeline highlight: {self._latest_timeline_event(timeline)}",
+            f"- Evidence types: {self._format_evidence_kinds(evidence)}",
         ]
+        return lines
 
-    @classmethod
     def _default_claim_section(
-        cls,
+        self,
         case: Case,
         evidence: Sequence[EvidenceItem],
         timeline: Sequence[TimelineEvent],
+        readiness: ReadinessReport,
+        counterparty: CounterpartyProfile | None,
     ) -> list[str]:
         return [
+            "",
             "## Claim focus",
             f"- Narrative: {case.summary or 'Capture the story here.'}",
-            f"- Timeline highlight: {cls._latest_timeline_event(timeline)}",
-            f"- Evidence kinds: {cls._format_evidence_kinds(evidence)}",
+            f"- Timeline highlight: {self._latest_timeline_event(timeline)}",
+            f"- Evidence kinds: {self._format_evidence_kinds(evidence)}",
         ]
 
-    @classmethod
-    def _render_evidence_section(cls, evidence: Sequence[EvidenceItem]) -> list[str]:
-        return [
+    def _render_evidence_section(self, evidence: Sequence[EvidenceItem]) -> list[str]:
+        relevant = sum(1 for item in evidence if getattr(item, "manual_relevance", False))
+        lines = [
             "",
             "## Evidence snapshot",
-            f"- Total files: {len(evidence)}",
-            f"- File types: {cls._format_evidence_kinds(evidence)}",
+            f"- Files captured: {len(evidence)}",
+            f"- File types: {self._format_evidence_kinds(evidence)}",
         ]
+        if relevant:
+            lines.append(f"- Manual relevance flags: {relevant}")
+        return lines
 
-    @classmethod
-    def _render_timeline_section(cls, timeline: Sequence[TimelineEvent]) -> list[str]:
+    def _render_timeline_section(self, timeline: Sequence[TimelineEvent]) -> list[str]:
         return [
             "",
             "## Timeline snapshot",
             f"- Events recorded: {len(timeline)}",
-            f"- {cls._format_timeline_intro(timeline)}",
+            f"- Latest entry: {self._latest_timeline_event(timeline)}",
         ]

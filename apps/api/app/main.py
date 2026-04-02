@@ -55,24 +55,32 @@ def create_app() -> FastAPI:
     evidence_storage = LocalEvidenceStorage(settings.evidence_root)
     export_storage = LocalExportStorage(settings.export_root)
     summary_builder = CaseSummaryBuilder()
+    readiness_service = ReadinessService(session_factory, logger)
+    summary_service = CaseSummaryService(session_factory, summary_builder, readiness_service)
     packager: VaultPackager
     if settings.vault_packager.lower() == "liquefy":
         packager = LiquefyPackager(logger)
     else:
-        packager = DefaultVaultPackager(evidence_storage, summary_builder, logger)
+        packager = DefaultVaultPackager(evidence_storage, logger)
     lifecycle_service = CaseLifecycleService(logger)
     services = Services(
         audit_service=AuditService(session_factory, logger),
         case_service=CaseService(session_factory, logger, lifecycle_service),
         auth_service=AuthService(session_factory, settings, logger),
         evidence_service=EvidenceService(session_factory, evidence_storage, settings, logger),
-        export_service=ExportService(session_factory, export_storage, packager, logger),
-        summary_service=CaseSummaryService(session_factory, summary_builder),
+        export_service=ExportService(
+            session_factory,
+            export_storage,
+            packager,
+            summary_service,
+            logger,
+        ),
         timeline_service=TimelineService(session_factory, logger),
-        readiness_service=ReadinessService(session_factory, logger),
+        readiness_service=readiness_service,
         counterparty_service=CounterpartyService(session_factory),
         assistant_service=NoopCaseAssistantService(),
         lifecycle_service=lifecycle_service,
+        summary_service=summary_service,
     )
 
     app = FastAPI(

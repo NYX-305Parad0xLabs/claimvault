@@ -14,7 +14,6 @@ from typing import Any, Sequence
 from uuid import uuid4
 
 from app.models.claim import Case, EvidenceItem, TimelineEvent
-from app.services.summary_builder import CaseSummaryBuilder
 from app.storage import EvidenceStorage
 
 
@@ -36,6 +35,7 @@ class VaultPackager(ABC):
         case: Case,
         evidence: Sequence[EvidenceItem],
         timeline: Sequence[TimelineEvent],
+        summary: str,
     ) -> PackagingResult:
         ...
 
@@ -48,21 +48,20 @@ class DefaultVaultPackager(VaultPackager):
     def __init__(
         self,
         evidence_storage: EvidenceStorage,
-        summary_builder: CaseSummaryBuilder,
         logger: logging.Logger | None = None,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._storage = evidence_storage
-        self._summary_builder = summary_builder
 
     def package(
         self,
         case: Case,
         evidence: Sequence[EvidenceItem],
         timeline: Sequence[TimelineEvent],
+        summary: str,
     ) -> PackagingResult:
         self._logger.debug("packaging export bundle internally", extra={"case_id": case.id})
-        content, records = self._build_archive(case, evidence, timeline)
+        content, records = self._build_archive(case, evidence, timeline, summary)
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
         filename = f"case_{case.id}_export_{timestamp}.zip"
         manifest = {
@@ -76,11 +75,11 @@ class DefaultVaultPackager(VaultPackager):
         case: Case,
         evidence: Sequence[EvidenceItem],
         timeline: Sequence[TimelineEvent],
+        summary: str,
     ) -> tuple[bytes, list[tuple[str, str]]]:
         case_payload = self._serialize_case(case)
         timeline_payload = [self._serialize_timeline(event) for event in timeline]
         evidence_payload = [self._serialize_evidence(item) for item in evidence]
-        summary = self._summary_builder.build_summary(case, evidence, timeline)
         records: list[tuple[str, str]] = []
         buffer = BytesIO()
         with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
@@ -209,8 +208,10 @@ class LiquefyPackager(VaultPackager):
         case: Case,
         evidence: Sequence[EvidenceItem],
         timeline: Sequence[TimelineEvent],
+        summary: str,
     ) -> PackagingResult:
         # TODO: Replace this stub with the Liquefy API adapter once the repo is available.
+        _ = summary
         self._logger.warning(
             "Liquefy packager invoked while integration is pending",
             extra={"case_id": case.id},

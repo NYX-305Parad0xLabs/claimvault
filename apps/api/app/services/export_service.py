@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 
 from app.models.claim import ActorType, AuditEvent, Case, ExportArtifact, EvidenceItem, TimelineEvent
 from app.schemas.export import CaseExportRead
+from app.services.case_summary_service import CaseSummaryService, CaseSummaryServiceError
 from app.services.packager import VaultPackager
 from app.storage import ExportStorage
 
@@ -28,11 +29,13 @@ class ExportService:
         session_factory: Callable[[], Session],
         export_storage: ExportStorage,
         packager: VaultPackager,
+        summary_service: CaseSummaryService,
         logger: logging.Logger,
     ) -> None:
         self._session_factory = session_factory
         self._export_storage = export_storage
         self._packager = packager
+        self._summary_service = summary_service
         self._logger = logger
 
     def create_export(
@@ -66,7 +69,11 @@ class ExportService:
                 .all()
             )
 
-            packaging = self._packager.package(case, evidence, timeline)
+            try:
+                preview = self._summary_service.preview_summary(workspace_id, case_id)
+            except CaseSummaryServiceError as error:
+                raise ExportServiceError(error.detail, error.status_code)
+            packaging = self._packager.package(case, evidence, timeline, preview.summary)
             storage_key = self._export_storage.store(
                 workspace_id,
                 case_id,
