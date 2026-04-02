@@ -12,6 +12,7 @@ from app.models import metadata as models_metadata
 from app.services import (
     AuditService,
     AuthService,
+    CaseLifecycleService,
     CaseService,
     CaseSummaryService,
     EvidenceService,
@@ -53,9 +54,10 @@ def create_app() -> FastAPI:
         packager = LiquefyPackager(logger)
     else:
         packager = DefaultVaultPackager(evidence_storage, summary_builder, logger)
+    lifecycle_service = CaseLifecycleService(logger)
     services = Services(
         audit_service=AuditService(session_factory, logger),
-        case_service=CaseService(session_factory, logger),
+        case_service=CaseService(session_factory, logger, lifecycle_service),
         auth_service=AuthService(session_factory, settings, logger),
         evidence_service=EvidenceService(session_factory, evidence_storage, settings, logger),
         export_service=ExportService(session_factory, export_storage, packager, logger),
@@ -63,6 +65,7 @@ def create_app() -> FastAPI:
         timeline_service=TimelineService(session_factory, logger),
         readiness_service=ReadinessService(session_factory, logger),
         assistant_service=NoopCaseAssistantService(),
+        lifecycle_service=lifecycle_service,
     )
 
     app = FastAPI(

@@ -7,9 +7,10 @@ from typing import Callable
 from fastapi import status
 from sqlmodel import Session, select
 
-from app.models.claim import ActorType, AuditEvent, Case, CaseStatus, ClaimType, CounterpartyProfile, TimelineEvent
+from app.models.claim import ActorType, AuditEvent, Case, CaseStatus, ClaimType, CounterpartyProfile
 from app.schemas.case import CaseCreate, CaseRead, CaseTransitionRequest, CaseUpdate
-from app.services.case_state_machine import CaseStateMachine, InvalidCaseTransition
+from app.services.case_lifecycle_service import CaseLifecycleService
+from app.services.case_state_machine import InvalidCaseTransition
 
 
 class CaseServiceError(Exception):
@@ -23,11 +24,11 @@ class CaseService:
         self,
         session_factory: Callable[[], Session],
         logger: logging.Logger,
-        state_machine: CaseStateMachine | None = None,
+        lifecycle_service: CaseLifecycleService,
     ) -> None:
         self._session_factory = session_factory
         self._logger = logger
-        self._state_machine = state_machine or CaseStateMachine()
+        self._lifecycle_service = lifecycle_service
 
     def list_cases(
         self,
@@ -165,40 +166,16 @@ class CaseService:
             if not case or case.workspace_id != workspace_id:
                 raise CaseServiceError("case not found", status.HTTP_404_NOT_FOUND)
 
-            current_status = case.status
             try:
-                self._state_machine.validate(current_status, request.target_status)
+                self._lifecycle_service.transition(
+                    session,
+                    case,
+                    request.target_status,
+                    actor_id=actor_id,
+                    reason=request.reason,
+                )
             except InvalidCaseTransition as exc:
                 raise CaseServiceError(str(exc))
-
-            case.status = request.target_status
-            case.updated_at = datetime.utcnow()
-            session.add(
-                TimelineEvent(
-                    case_id=case.id,
-                    event_type="status_transition",
-                    actor_type=ActorType.USER,
-                    actor_id=actor_id,
-                    body=self._build_transition_body(
-                        current_status, request.target_status, request.reason
-                    ),
-                    metadata_json=self._build_transition_metadata(
-                        current_status, request.target_status, request.reason
-                    ),
-                )
-            )
-            session.add(
-                AuditEvent(
-                    entity_type="case",
-                    entity_id=case.id,
-                    action="transition",
-                    actor_type=ActorType.USER,
-                    actor_id=actor_id,
-                    metadata_json=self._build_transition_metadata(
-                        current_status, request.target_status, request.reason
-                    ),
-                )
-            )
             session.commit()
             session.refresh(case)
             profile = self._maybe_load_counterparty_profile(
@@ -235,19 +212,3 @@ class CaseService:
         if not profile or profile.workspace_id != workspace_id:
             raise CaseServiceError("counterparty profile not found", status.HTTP_404_NOT_FOUND)
         return profile
-
-    @staticmethod
-    def _build_transition_body(
-        current: CaseStatus, target: CaseStatus, reason: str | None
-    ) -> str:
-        base = f"Status changed from {current.value} to {target.value}"
-        return f"{base} (reason: {reason})" if reason else base
-
-    @staticmethod
-    def _build_transition_metadata(
-        current: CaseStatus, target: CaseStatus, reason: str | None
-    ) -> dict[str, str | CaseStatus]:
-        metadata = {"from": current.value, "to": target.value}
-        if reason:
-            metadata["reason"] = reason
-        return metadata

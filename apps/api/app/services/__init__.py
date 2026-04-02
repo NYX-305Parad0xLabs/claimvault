@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from .audit_service import AuditService
 from .auth_service import AuthService
 from .case_service import CaseService
+from .case_lifecycle_service import CaseLifecycleService
 from .case_summary_service import CaseSummaryService
 from .evidence_service import EvidenceService
 from .export_service import ExportService
@@ -14,6 +15,7 @@ from .case_assistant_service import CaseAssistantService
 __all__ = [
     "AuditService",
     "AuthService",
+    "CaseLifecycleService",
     "CaseService",
     "CaseSummaryService",
     "EvidenceService",
@@ -34,3 +36,4 @@ class Services:
     readiness_service: ReadinessService
     summary_service: CaseSummaryService
     assistant_service: CaseAssistantService
+    lifecycle_service: CaseLifecycleService

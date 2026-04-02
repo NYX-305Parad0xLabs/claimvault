@@ -351,6 +351,7 @@ export async function downloadEvidence(caseId: string, evidenceId: number, filen
 
 export type CaseTransitionRequest = {
   target_status: string;
+  reason?: string;
 };
 
 export function transitionCase(caseId: string, payload: CaseTransitionRequest) {

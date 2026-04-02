@@ -40,8 +40,13 @@ import { claimContract } from "@/lib/contracts/claimContract";
 
 const workflowTransitions: Record<string, { value: string; label: string }[]> = {
   draft: [{ value: "collecting_evidence", label: "Start collecting evidence" }],
-  collecting_evidence: [{ value: "ready_to_export", label: "Mark ready to export" }],
-  ready_to_export: [{ value: "submitted", label: "Submit case" }],
+  collecting_evidence: [
+    { value: "needs_user_input", label: "Flag missing input" },
+    { value: "ready_for_export", label: "Mark ready to export" },
+  ],
+  needs_user_input: [{ value: "collecting_evidence", label: "Resume collecting evidence" }],
+  ready_for_export: [{ value: "exported", label: "Record export" }],
+  exported: [{ value: "submitted", label: "Submit proof bundle" }],
   submitted: [
     { value: "resolved", label: "Resolve case" },
     { value: "closed", label: "Close case" },
@@ -192,6 +197,7 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
   const [transitionLoading, setTransitionLoading] = useState(false);
   const [transitionError, setTransitionError] = useState<string | null>(null);
   const [transitionMessage, setTransitionMessage] = useState<string | null>(null);
+  const [transitionReason, setTransitionReason] = useState("");
 
   const [evidenceLoading, setEvidenceLoading] = useState(true);
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
@@ -351,10 +357,16 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
     setTransitionError(null);
     setTransitionMessage(null);
     try {
-      const updated = await transitionCase(caseId, { target_status: target });
+      const transitionPayload: CaseTransitionRequest = { target_status: target };
+      const trimmedReason = transitionReason.trim();
+      if (trimmedReason) {
+        transitionPayload.reason = trimmedReason;
+      }
+      const updated = await transitionCase(caseId, transitionPayload);
       setCaseDetail(updated);
       const label = statusLabels[target] ?? target.replace(/_/g, " ");
       setTransitionMessage(`Case moved to ${label}.`);
+      setTransitionReason("");
       await refreshTimeline();
       await refreshReadiness();
       await refreshAudit();
@@ -894,6 +906,16 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
             {!availableTransitions.length && (
               <p className="text-sm text-slate-500">No further transitions available.</p>
             )}
+            <label className="mt-3 block text-sm font-medium text-slate-600">
+              Reason (optional)
+              <textarea
+                value={transitionReason}
+                onChange={(event) => setTransitionReason(event.target.value)}
+                rows={2}
+                className="mt-1 w-full resize-y rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-slate-900"
+                placeholder="Add context for the transition"
+              />
+            </label>
             <div className="flex flex-wrap gap-2">
               {availableTransitions.map((transition) => (
                 <button
