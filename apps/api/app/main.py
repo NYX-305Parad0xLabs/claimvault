@@ -4,12 +4,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.v1 import claims_router, health_router
+from app.api.v1 import auth_router, cases_router, health_router
 from app.core.config import Settings
 from app.core.db import build_engine, build_session_factory
 from app.core.logger import configure_structured_logger
 from app.models import metadata as models_metadata
-from app.services import CaseService, Services
+from app.services import AuthService, CaseService, Services
 
 
 @asynccontextmanager
@@ -31,7 +31,10 @@ def create_app() -> FastAPI:
     engine = build_engine(settings)
     session_factory = build_session_factory(engine)
 
-    services = Services(case_service=CaseService(session_factory, logger))
+    services = Services(
+        case_service=CaseService(session_factory, logger),
+        auth_service=AuthService(session_factory, settings, logger),
+    )
 
     app = FastAPI(
         title=settings.app_name,
@@ -48,6 +51,7 @@ def create_app() -> FastAPI:
     app.state.services = services
 
     app.include_router(health_router)
-    app.include_router(claims_router, prefix="/api")
+    app.include_router(auth_router, prefix="/api")
+    app.include_router(cases_router, prefix="/api")
 
     return app

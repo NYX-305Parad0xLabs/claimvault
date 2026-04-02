@@ -12,6 +12,8 @@ from .claim import (
     TimelineEvent,
     User,
     Workspace,
+    WorkspaceMembership,
+    WorkspaceRole,
 )
 
 __all__ = [
@@ -26,6 +28,8 @@ __all__ = [
     "TimelineEvent",
     "User",
     "Workspace",
+    "WorkspaceMembership",
+    "WorkspaceRole",
 ]
 
 metadata = SQLModel.metadata

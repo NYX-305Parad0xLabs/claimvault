@@ -10,7 +10,6 @@ from app.models.claim import CaseStatus, ClaimType
 
 
 class CaseCreate(SQLModel):
-    workspace_id: int
     title: str
     claim_type: ClaimType
     counterparty_name: Optional[str] = None
