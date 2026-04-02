@@ -14,16 +14,16 @@ class CaseService:
         self._session_factory = session_factory
         self._logger = logger
 
-    def list_cases(self) -> list[CaseRead]:
+    def list_cases(self, workspace_id: int) -> list[CaseRead]:
         with self._session_factory() as session:
-            statement = select(Case).order_by(Case.created_at.desc())
+            statement = select(Case).where(Case.workspace_id == workspace_id).order_by(Case.created_at.desc())
             cases = session.exec(statement).all()
             return [CaseRead.model_validate(case) for case in cases]
 
-    def create_case(self, payload: CaseCreate) -> CaseRead:
+    def create_case(self, payload: CaseCreate, workspace_id: int) -> CaseRead:
         with self._session_factory() as session:
             case = Case(
-                workspace_id=payload.workspace_id,
+                workspace_id=workspace_id,
                 title=payload.title,
                 claim_type=payload.claim_type,
                 counterparty_name=payload.counterparty_name,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import secrets
+
 from pydantic import ConfigDict, Field
 from pydantic_settings import BaseSettings
 
@@ -21,3 +23,6 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+    secret_key: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
+    access_token_expire_minutes: int = 60
+    token_algorithm: str = "HS256"

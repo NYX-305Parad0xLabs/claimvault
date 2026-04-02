@@ -1,31 +1,39 @@
 import pytest
 
-from app.models import Workspace
+
+async def register_and_login(async_client, email="ops@example.com", password="Sup3rSecret!") -> str:
+    register_payload = {
+        "email": email,
+        "password": password,
+        "full_name": "Ops User",
+        "workspace_name": "Operations",
+    }
+    register_response = await async_client.post("/api/auth/register", json=register_payload)
+    assert register_response.status_code == 201
+
+    login_payload = {"email": email, "password": password}
+    login_response = await async_client.post("/api/auth/login", json=login_payload)
+    token = login_response.json()["access_token"]
+    return token
 
 
 @pytest.mark.asyncio
-async def test_create_and_list_claim(async_client, app_instance):
-    workspace_payload = {"name": "Finance Ops"}
-    workspace_data = Workspace(**workspace_payload)
-    session_factory = app_instance.state.session_factory
-    with session_factory() as session:
-        session.add(workspace_data)
-        session.commit()
-        session.refresh(workspace_data)
+async def test_create_and_list_case(async_client):
+    token = await register_and_login(async_client)
+    headers = {"Authorization": f"Bearer {token}"}
 
     payload = {
-        "workspace_id": workspace_data.id,
         "title": "Return - faulty cable",
         "claim_type": "return",
-        "summary": "Faulty cable once opened",
+        "summary": "Cable shorted upon delivery",
     }
 
-    created = await async_client.post("/api/claims/", json=payload)
+    created = await async_client.post("/api/cases/", json=payload, headers=headers)
     assert created.status_code == 201
     body = created.json()
     assert body["title"] == payload["title"]
-    assert body["workspace_id"] == payload["workspace_id"]
+    assert body["claim_type"] == payload["claim_type"]
 
-    listed = await async_client.get("/api/claims/")
+    listed = await async_client.get("/api/cases/", headers=headers)
     assert listed.status_code == 200
     assert any(case["title"] == payload["title"] for case in listed.json())

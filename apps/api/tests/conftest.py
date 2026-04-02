@@ -11,6 +11,9 @@ def cli_env(monkeypatch, tmp_path):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'claimvault.db'}")
     monkeypatch.setenv("CLAIMVAULT_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("ENVIRONMENT", "test")
+    monkeypatch.setenv("SECRET_KEY", "test-secret")
+    monkeypatch.setenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60")
+    monkeypatch.setenv("TOKEN_ALGORITHM", "HS256")
     yield
 
 

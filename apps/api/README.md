@@ -1,16 +1,24 @@
 # ClaimVault API
 
-This FastAPI application exposes the claim ingestion and listing endpoints for ClaimVault. It relies on SQLModel for schema definitions, Alembic for migrations, and loads shared claim contracts from `packages/contracts`.
+This FastAPI application exposes the case ingestion, workflow, and authentication endpoints for ClaimVault. It relies on SQLModel for schema definitions, Alembic for migrations, JWT tokens for authentication, and loads shared claim contracts from `packages/contracts`.
+
+## Authentication
+
+- `POST /api/auth/register`: create an operator account, workspace, and owner membership.
+- `POST /api/auth/login`: exchange credentials for a JWT Bearer token that encodes the workspace and role.
+- `GET /api/auth/me`: inspect the current operator and workspace membership using the active token.
+
+Protected routes require the `Authorization: Bearer <token>` header. The test secret and token lifetime are configured via `SECRET_KEY`, `ACCESS_TOKEN_EXPIRE_MINUTES`, and `TOKEN_ALGORITHM`.
 
 ## Running locally
-1. Copy `.env.example` to `.env` and adjust `DATABASE_URL` if necessary.
-2. `python -m pip install -e .` to install the service in editable mode.
+1. Copy `.env.example` to `.env` and adjust values (especially `SECRET_KEY` and `DATABASE_URL`).
+2. `python -m pip install -e .[dev]` to install the API and dev dependencies in editable mode.
 3. `uvicorn app.main:app --reload --host 0.0.0.0 --port 8000` to start the API.
 
 ## Linting & Tests
-- `ruff check app`
+- `ruff check .`
 - `pytest`
 
 ## Future work
-- Add Alembic migrations under `apps/api/alembic` once the first models stabilize.
-- Expand tests to cover contract validation and persistence.
+- Expand Alembic migrations under `apps/api/alembic` once models finalize.
+- Grow the API surface (case transitions, evidence upload, exports) with additional integration tests.

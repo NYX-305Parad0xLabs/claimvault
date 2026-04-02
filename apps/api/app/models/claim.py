@@ -45,11 +45,19 @@ class ActorType(str, Enum):
     INTEGRATION = "integration"
 
 
+class WorkspaceRole(str, Enum):
+    """Roles that determine workspace access levels."""
+    OWNER = "owner"
+    OPERATOR = "operator"
+    VIEWER = "viewer"
+
+
 class User(SQLModel, table=True):
     """Platform operator or auditor."""
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    email: str = Field(index=True)
+    email: str = Field(index=True, unique=True)
+    hashed_password: str
     full_name: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -60,6 +68,16 @@ class Workspace(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True, unique=True)
     description: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class WorkspaceMembership(SQLModel, table=True):
+    """Association of users to workspaces with roles."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    workspace_id: int = Field(foreign_key="workspace.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    role: WorkspaceRole
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
