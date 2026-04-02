@@ -196,6 +196,13 @@ export const evidenceKindOptions: Array<{ value: EvidenceKind; label: string }> 
   { value: "other", label: "Other" },
 ];
 
+export type ExtractionStatus =
+  | "not_started"
+  | "pending"
+  | "extracted"
+  | "failed"
+  | "manual";
+
 export type EvidenceItem = {
   id: number;
   case_id: number;
@@ -207,6 +214,8 @@ export type EvidenceItem = {
   storage_key: string;
   source_label?: string | null;
   kind: EvidenceKind;
+  extraction_status: ExtractionStatus;
+  extracted_text?: string | null;
 };
 
 type EvidenceUploadOptions = {
@@ -394,4 +403,20 @@ export function fetchAuditEvents(
   params.set("limit", String(options?.limit ?? 50));
   params.set("offset", String(options?.offset ?? 0));
   return request<AuditEvent[]>(`/cases/${caseId}/audit-events?${params.toString()}`);
+}
+
+export type EvidenceExtractionUpdateRequest = {
+  extraction_status?: ExtractionStatus;
+  extracted_text?: string | null;
+};
+
+export function updateEvidenceExtraction(
+  caseId: string,
+  evidenceId: number,
+  payload: EvidenceExtractionUpdateRequest
+) {
+  return request<EvidenceItem>(`/cases/${caseId}/evidence/${evidenceId}/extraction`, {
+    method: "PATCH",
+    body: payload,
+  });
 }

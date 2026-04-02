@@ -26,7 +26,17 @@ class EvidenceRead(SQLModel):
     description: str | None = None
     manual_relevance: bool = False
     extraction_status: ExtractionStatus
+    extracted_text: str | None = None
     metadata_json: dict[str, Any] = Field(default_factory=dict)
 
     class Config:
         from_attributes = True
+
+class EvidenceExtractionRead(SQLModel):
+    extraction_status: ExtractionStatus
+    extracted_text: str | None = None
+
+
+class EvidenceExtractionUpdate(SQLModel):
+    extraction_status: ExtractionStatus | None = None
+    extracted_text: str | None = None

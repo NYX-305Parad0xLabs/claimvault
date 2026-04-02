@@ -36,7 +36,11 @@ from app.schemas.case import (
     CaseTransitionRequest,
     CaseUpdate,
 )
-from app.schemas.evidence import EvidenceRead
+from app.schemas.evidence import (
+    EvidenceExtractionRead,
+    EvidenceExtractionUpdate,
+    EvidenceRead,
+)
 from app.schemas.case_summary import CaseSummaryPreview
 from app.schemas.export import CaseExportRead, CaseExportRequest
 from app.schemas.readiness import ReadinessReport
@@ -195,6 +199,28 @@ def get_evidence_detail(
     return EvidenceRead.model_validate(evidence)
 
 
+@router.get(
+    "/{case_id}/evidence/{evidence_id}/extraction",
+    response_model=EvidenceExtractionRead,
+)
+def get_evidence_extraction(
+    case_id: int,
+    evidence_id: int,
+    workspace_member: WorkspaceMembership = Depends(get_current_workspace_member),
+    evidence_service: EvidenceService = Depends(get_evidence_service),
+) -> EvidenceExtractionRead:
+    try:
+        evidence = evidence_service.fetch_evidence(
+            workspace_member.workspace_id, case_id, evidence_id
+        )
+    except EvidenceServiceError as error:
+        raise _handle_evidence_error(error)
+    return EvidenceExtractionRead(
+        extraction_status=evidence.extraction_status,
+        extracted_text=evidence.extracted_text,
+    )
+
+
 @router.delete("/{case_id}/evidence/{evidence_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_evidence(
     case_id: int,
@@ -273,6 +299,32 @@ def download_evidence(
     except EvidenceServiceError as error:
         raise _handle_evidence_error(error)
     return FileResponse(path, media_type=evidence.mime_type, filename=evidence.original_filename)
+
+
+@router.patch(
+    "/{case_id}/evidence/{evidence_id}/extraction",
+    response_model=EvidenceRead,
+)
+def update_evidence_extraction(
+    case_id: int,
+    evidence_id: int,
+    payload: EvidenceExtractionUpdate,
+    evidence_service: EvidenceService = Depends(get_evidence_service),
+    workspace_member: WorkspaceMembership = Depends(
+        require_workspace_role(WorkspaceRole.OWNER, WorkspaceRole.OPERATOR)
+    ),
+) -> EvidenceRead:
+    try:
+        return evidence_service.update_extraction(
+            workspace_member.workspace_id,
+            case_id,
+            evidence_id,
+            actor_id=workspace_member.user_id,
+            extracted_text=payload.extracted_text,
+            extraction_status=payload.extraction_status,
+        )
+    except EvidenceServiceError as error:
+        raise _handle_evidence_error(error)
 
 
 @router.get("/{case_id}/readiness", response_model=ReadinessReport)

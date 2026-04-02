@@ -10,6 +10,7 @@ ClaimVault is a verified evidence and dispute operating system that keeps every 
 ## Evidence timeline
 - Evidence items store metadata (kind, storage key, hash, extracted text, metadata JSON) and point to cases.
 - Timeline events are append-only; uploads, notes, transitions, and exports append to the same chronological trail so every decision can be traced.
+- Extraction metadata carries `extraction_status` (not_started, pending, extracted, failed, manual) plus any manually entered text, and updates emit both timeline events and audit entries so reviewers know who touched the proof content.
 - The UI and services layer consume the timeline to render contextual narratives for disputes and claims.
 
 ## Readiness rules

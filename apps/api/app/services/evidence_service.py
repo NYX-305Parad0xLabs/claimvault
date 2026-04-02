@@ -228,6 +228,67 @@ class EvidenceService:
         path = self._storage.path_for(evidence.storage_key)
         return evidence, path
 
+    def update_extraction(
+        self,
+        workspace_id: int,
+        case_id: int,
+        evidence_id: int,
+        *,
+        actor_id: int,
+        extracted_text: str | None = None,
+        extraction_status: ExtractionStatus | None = None,
+    ) -> EvidenceRead:
+        if extracted_text is None and extraction_status is None:
+            raise EvidenceServiceError("provide extracted text or status to update")
+
+        with self._session_factory() as session:
+            self._validate_case(session, workspace_id, case_id)
+            evidence = session.get(EvidenceItem, evidence_id)
+            if not evidence or evidence.case_id != case_id or evidence.deleted_at:
+                raise EvidenceServiceError("evidence not found", status.HTTP_404_NOT_FOUND)
+
+            updated_fields: list[str] = []
+            metadata: dict[str, Any] = {
+                "storage_key": evidence.storage_key,
+                "evidence_id": evidence.id,
+            }
+
+            if extracted_text is not None:
+                evidence.extracted_text = extracted_text
+                updated_fields.append("extracted_text")
+                metadata["extracted_text_preview"] = extracted_text[:200]
+
+            if extraction_status is not None:
+                evidence.extraction_status = extraction_status
+                updated_fields.append("extraction_status")
+                metadata["extraction_status"] = extraction_status.value
+
+            metadata["fields"] = updated_fields
+
+            session.add(
+                TimelineEvent(
+                    case_id=case_id,
+                    event_type="extraction_updated",
+                    actor_type=ActorType.USER,
+                    actor_id=actor_id,
+                    body=f"Updated extraction for {evidence.original_filename}",
+                    metadata_json=metadata,
+                )
+            )
+            session.add(
+                AuditEvent(
+                    entity_type="evidence",
+                    entity_id=case_id,
+                    action="extraction_update",
+                    actor_type=ActorType.USER,
+                    actor_id=actor_id,
+                    metadata_json=metadata,
+                )
+            )
+            session.commit()
+            session.refresh(evidence)
+            return EvidenceRead.model_validate(evidence)
+
     def delete_evidence(
         self,
         workspace_id: int,

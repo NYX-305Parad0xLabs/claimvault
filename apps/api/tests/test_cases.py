@@ -180,7 +180,7 @@ async def test_evidence_upload_and_hash(async_client, app_instance):
         "manual_relevance": "true",
         "description": "Customer receipt",
         "event_date": datetime.utcnow().isoformat(),
-        "extraction_status": ExtractionStatus.COMPLETED.value,
+        "extraction_status": ExtractionStatus.EXTRACTED.value,
     }
     response = await async_client.post(
         f"/api/cases/{case_id}/evidence",
@@ -194,7 +194,7 @@ async def test_evidence_upload_and_hash(async_client, app_instance):
     assert data["merchant_label"] == metadata_payload["merchant_label"]
     assert data["manual_relevance"] is True
     assert data["description"] == metadata_payload["description"]
-    assert data["extraction_status"] == ExtractionStatus.COMPLETED
+    assert data["extraction_status"] == ExtractionStatus.EXTRACTED
 
     session_factory = app_instance.state.session_factory
     with session_factory() as session:
@@ -265,7 +265,7 @@ async def test_evidence_detail_and_delete(async_client):
         "description": "Manual receipt",
         "event_date": datetime.utcnow().isoformat(),
         "platform_label": "claimvault",
-        "extraction_status": ExtractionStatus.COMPLETED.value,
+        "extraction_status": ExtractionStatus.EXTRACTED.value,
     }
     upload = await async_client.post(
         f"/api/cases/{case_id}/evidence",

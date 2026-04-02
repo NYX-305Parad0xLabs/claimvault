@@ -53,11 +53,13 @@ class EvidenceKind(str, Enum):
 
 
 class ExtractionStatus(str, Enum):
-    """Evidence extraction progress."""
+    """Evidence extraction progress states."""
 
+    NOT_STARTED = "not_started"
     PENDING = "pending"
-    COMPLETED = "completed"
+    EXTRACTED = "extracted"
     FAILED = "failed"
+    MANUAL = "manual"
 
 
 class ActorType(str, Enum):

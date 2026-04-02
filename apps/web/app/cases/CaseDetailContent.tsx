@@ -19,9 +19,11 @@ import {
   CaseTransitionRequest,
   EvidenceItem,
   EvidenceKind,
+  ExtractionStatus,
   MAX_EVIDENCE_SIZE_BYTES,
   DISALLOWED_EVIDENCE_MIMES,
   evidenceKindOptions,
+  updateEvidenceExtraction,
   createTimelineNote,
   downloadEvidence,
   fetchAuditEvents,
@@ -92,6 +94,28 @@ const sortTimeline = (events: TimelineEvent[]) =>
 const getKindLabel = (kind: EvidenceKind) =>
   evidenceKindOptions.find((option) => option.value === kind)?.label ?? kind;
 const getKindIcon = (kind: EvidenceKind) => kindIcons[kind] ?? "📁";
+const summarizeText = (value?: string | null, limit = 160) => {
+  if (!value) {
+    return null;
+  }
+  return value.length > limit ? `${value.slice(0, limit)}…` : value;
+};
+
+const extractionStatusOptions: Array<{ value: ExtractionStatus; label: string }> = [
+  { value: "not_started", label: "Not started" },
+  { value: "pending", label: "Pending" },
+  { value: "extracted", label: "Extracted" },
+  { value: "failed", label: "Failed" },
+  { value: "manual", label: "Manual entry" },
+];
+
+const extractionStatusLabels: Record<ExtractionStatus, string> = {
+  not_started: "Not started",
+  pending: "Pending",
+  extracted: "Extracted",
+  failed: "Failed",
+  manual: "Manual entry",
+};
 
 const auditActionLabels: Record<string, string> = {
   create: "Case created",
@@ -207,6 +231,13 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
   const [selectedKind, setSelectedKind] = useState<EvidenceKind>("receipt");
   const [dragActive, setDragActive] = useState(false);
   const [downloadingEvidenceId, setDownloadingEvidenceId] = useState<number | null>(null);
+  const [editingExtractionId, setEditingExtractionId] = useState<number | null>(null);
+  const [extractionDraft, setExtractionDraft] = useState("");
+  const [extractionStatusDraft, setExtractionStatusDraft] =
+    useState<ExtractionStatus>("not_started");
+  const [extractionSaving, setExtractionSaving] = useState(false);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
+  const [extractionMessage, setExtractionMessage] = useState<string | null>(null);
 
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
@@ -438,6 +469,46 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
       setEvidenceError(message);
     } finally {
       setDownloadingEvidenceId(null);
+    }
+  };
+
+  const startExtractionEdit = (item: EvidenceItem) => {
+    setEditingExtractionId(item.id);
+    setExtractionDraft(item.extracted_text ?? "");
+    setExtractionStatusDraft(item.extraction_status ?? "not_started");
+    setExtractionError(null);
+    setExtractionMessage(null);
+  };
+
+  const closeExtractionEditor = () => {
+    setEditingExtractionId(null);
+    setExtractionError(null);
+    setExtractionMessage(null);
+  };
+
+  const handleSaveExtraction = async (
+    event: FormEvent<HTMLFormElement>,
+    evidenceId: number
+  ) => {
+    event.preventDefault();
+    setExtractionSaving(true);
+    setExtractionError(null);
+    setExtractionMessage(null);
+    try {
+      const updated = await updateEvidenceExtraction(caseId, evidenceId, {
+        extracted_text: extractionDraft.trim() || null,
+        extraction_status: extractionStatusDraft,
+      });
+      setEvidenceList((prev) => prev.map((item) => (item.id === evidenceId ? updated : item)));
+      setExtractionMessage("Extraction details saved.");
+      closeExtractionEditor();
+      await refreshTimeline();
+      await refreshAudit();
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Unable to update extraction";
+      setExtractionError(message);
+    } finally {
+      setExtractionSaving(false);
     }
   };
 
@@ -827,20 +898,91 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
                         SHA256 {item.sha256.slice(0, 8)}…
                       </p>
                     </div>
-                    <div className="flex flex-col gap-2 text-xs uppercase tracking-[0.3em]">
-                      <button
-                        type="button"
-                        className="rounded-2xl border border-slate-200 px-4 py-2 text-[11px] font-semibold text-slate-700 transition hover:border-slate-900"
-                        onClick={() => handleDownloadEvidence(item)}
-                        disabled={downloadingEvidenceId === item.id}
-                      >
-                        {downloadingEvidenceId === item.id ? "Downloading" : "Download"}
-                      </button>
-                      <span className="text-xs text-slate-500">
-                        Source {item.source_label ?? "upload"}
-                      </span>
-                    </div>
+                  <div className="flex flex-col gap-2 text-xs uppercase tracking-[0.3em]">
+                    <button
+                      type="button"
+                      className="rounded-2xl border border-slate-200 px-4 py-2 text-[11px] font-semibold text-slate-700 transition hover:border-slate-900"
+                      onClick={() => handleDownloadEvidence(item)}
+                      disabled={downloadingEvidenceId === item.id}
+                    >
+                      {downloadingEvidenceId === item.id ? "Downloading" : "Download"}
+                    </button>
+                    <span className="text-xs text-slate-500">
+                      Source {item.source_label ?? "upload"}
+                    </span>
                   </div>
+                </div>
+                <div className="mt-4 space-y-2 rounded-2xl border border-slate-200 bg-white/90 p-4 text-sm text-slate-700">
+                  <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.3em] text-slate-500">
+                    <span>Extraction</span>
+                    <span>{extractionStatusLabels[item.extraction_status] ?? item.extraction_status}</span>
+                  </div>
+                  <p className="text-sm leading-relaxed text-slate-600">
+                    {summarizeText(item.extracted_text) ?? "No extraction text recorded yet."}
+                  </p>
+                  <button
+                    type="button"
+                    className="rounded-2xl border border-slate-200 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-600 transition hover:border-slate-900"
+                    onClick={() =>
+                      editingExtractionId === item.id ? closeExtractionEditor() : startExtractionEdit(item)
+                    }
+                  >
+                    {editingExtractionId === item.id ? "Close extraction editor" : "Manage extraction"}
+                  </button>
+                  {editingExtractionId === item.id && (
+                    <form
+                      className="space-y-3"
+                      onSubmit={(event) => handleSaveExtraction(event, item.id)}
+                    >
+                      <label className="block text-xs uppercase tracking-[0.3em] text-slate-500">
+                        Status
+                        <select
+                          value={extractionStatusDraft}
+                          onChange={(event) =>
+                            setExtractionStatusDraft(event.target.value as ExtractionStatus)
+                          }
+                          className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900"
+                        >
+                          {extractionStatusOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block text-xs uppercase tracking-[0.3em] text-slate-500">
+                        Extracted text
+                        <textarea
+                          value={extractionDraft}
+                          onChange={(event) => setExtractionDraft(event.target.value)}
+                          rows={3}
+                          className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-900"
+                          placeholder="Capture notes, receipt text, or extraction overrides."
+                        />
+                      </label>
+                      {extractionError && <StatusMessage variant="error">{extractionError}</StatusMessage>}
+                      {extractionMessage && (
+                        <div className="text-xs text-emerald-700">{extractionMessage}</div>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="submit"
+                          disabled={extractionSaving}
+                          className="rounded-2xl border border-slate-200 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-700 transition hover:border-slate-900 disabled:opacity-60"
+                        >
+                          {extractionSaving ? "Saving..." : "Save extraction"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={closeExtractionEditor}
+                          className="rounded-2xl border border-slate-200 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500 transition hover:border-slate-900"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
                 </div>
               ))}
             </div>
