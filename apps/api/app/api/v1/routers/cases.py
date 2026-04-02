@@ -8,6 +8,7 @@ from app.api.v1.deps import (
     get_current_workspace_member,
     require_workspace_role,
     get_evidence_service,
+    get_readiness_service,
     get_timeline_service,
 )
 from app.models import WorkspaceMembership, WorkspaceRole
@@ -19,6 +20,7 @@ from app.schemas.case import (
     CaseUpdate,
 )
 from app.schemas.evidence import EvidenceRead
+from app.schemas.readiness import ReadinessReport
 from app.schemas.timeline import (
     TimelineEventCreate,
     TimelineEventRead,
@@ -26,6 +28,7 @@ from app.schemas.timeline import (
 )
 from app.services.case_service import CaseService, CaseServiceError
 from app.services.evidence_service import EvidenceService, EvidenceServiceError
+from app.services.readiness_service import ReadinessService
 from app.services.timeline_service import TimelineService, TimelineServiceError
 
 router = APIRouter(prefix="/cases", tags=["cases"])
@@ -170,6 +173,18 @@ def download_evidence(
     except EvidenceServiceError as error:
         raise _handle_evidence_error(error)
     return FileResponse(path, media_type=evidence.mime_type, filename=evidence.original_filename)
+
+
+@router.get("/{case_id}/readiness", response_model=ReadinessReport)
+def check_readiness(
+    case_id: int,
+    readiness_service: ReadinessService = Depends(get_readiness_service),
+    workspace_member: WorkspaceMembership = Depends(get_current_workspace_member),
+) -> ReadinessReport:
+    try:
+        return readiness_service.evaluate(workspace_member.workspace_id, case_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="case not found")
 
 
 @router.get("/{case_id}/timeline", response_model=list[TimelineEventRead])

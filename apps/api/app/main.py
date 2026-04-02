@@ -9,7 +9,14 @@ from app.core.config import Settings
 from app.core.db import build_engine, build_session_factory
 from app.core.logger import configure_structured_logger
 from app.models import metadata as models_metadata
-from app.services import AuthService, CaseService, EvidenceService, Services, TimelineService
+from app.services import (
+    AuthService,
+    CaseService,
+    EvidenceService,
+    ReadinessService,
+    Services,
+    TimelineService,
+)
 from app.storage import LocalEvidenceStorage
 
 
@@ -38,6 +45,7 @@ def create_app() -> FastAPI:
         auth_service=AuthService(session_factory, settings, logger),
         evidence_service=EvidenceService(session_factory, storage, settings, logger),
         timeline_service=TimelineService(session_factory, logger),
+        readiness_service=ReadinessService(session_factory, logger),
     )
 
     app = FastAPI(

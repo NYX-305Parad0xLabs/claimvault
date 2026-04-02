@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from .auth_service import AuthService
 from .case_service import CaseService
 from .evidence_service import EvidenceService
+from .readiness_service import ReadinessService
 from .timeline_service import TimelineService
 
 
@@ -15,3 +16,4 @@ class Services:
     auth_service: AuthService
     evidence_service: EvidenceService
     timeline_service: TimelineService
+    readiness_service: ReadinessService
