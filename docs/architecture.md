@@ -13,6 +13,11 @@ ClaimVault is a verified evidence and dispute operating system that keeps every 
 - Extraction metadata carries `extraction_status` (not_started, pending, extracted, failed, manual) plus any manually entered text, and updates emit both timeline events and audit entries so reviewers know who touched the proof content.
 - The UI and services layer consume the timeline to render contextual narratives for disputes and claims.
 
+## Workspace search
+- ClaimVault exposes a workspace-scoped search endpoint that scans case metadata, timeline bodies, and extracted evidence text/metadata within the PostgreSQL/SQLite database. Each hit is scored by field (titles, summaries, timeline text, and metadata) and limited to the top 50 matches to keep the MVP deterministic.
+- The implementation stays SQLite-safe by relying on `LIKE`/substring matches instead of full-text indexes, so the service can run anywhere without extra infrastructure. This also means query latency grows linearly and Liquefy’s future vault search remains necessary for heavy workloads.
+- Search is surfaced in the UI through the cases list (workspace-wide hits) and inside every case detail so operators can surface relevant snippets before jumping to evidence, timeline notes, or exports.
+
 ## Readiness rules
 - Claim-type-specific rule engines return a completeness score (0-100), missing required items, recommended optional tasks, and blockers that must be cleared before exports.
 - Rules run on every relevant detail fetch and after evidence uploads or timeline updates so the score reflects the latest state.

@@ -192,6 +192,17 @@ export type CaseCreateRequest = {
   due_date?: string;
 };
 
+export type SearchHit = {
+  case_id: number;
+  case_title: string;
+  source_type: "case" | "timeline" | "evidence";
+  source_id?: number | null;
+  match_field: string;
+  snippet: string;
+  score: number;
+  details: Record<string, unknown>;
+};
+
 export const MAX_EVIDENCE_SIZE_BYTES = 10 * 1024 * 1024;
 export const DISALLOWED_EVIDENCE_MIMES = new Set([
   "application/x-msdownload",
@@ -309,6 +320,15 @@ export function createCase(payload: CaseCreateRequest) {
     method: "POST",
     body: payload,
   });
+}
+
+export function searchCases(query: string, options?: { caseId?: string }) {
+  const params = new URLSearchParams();
+  params.set("query", query);
+  if (options?.caseId) {
+    params.set("case_id", options.caseId);
+  }
+  return request<SearchHit[]>(`/search?${params.toString()}`);
 }
 
 export function fetchCounterpartyProfiles() {

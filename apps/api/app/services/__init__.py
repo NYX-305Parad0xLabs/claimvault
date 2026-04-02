@@ -11,6 +11,7 @@ from .readiness_service import ReadinessService
 from .timeline_service import TimelineService
 from .case_assistant_service import CaseAssistantService
 from .counterparty_service import CounterpartyService
+from .search_service import SearchService
 
 
 __all__ = [
@@ -24,6 +25,7 @@ __all__ = [
     "TimelineService",
     "CounterpartyService",
     "Services",
+    "SearchService",
 ]
 
 
@@ -40,3 +42,4 @@ class Services:
     assistant_service: CaseAssistantService
     lifecycle_service: CaseLifecycleService
     counterparty_service: CounterpartyService
+    search_service: SearchService

@@ -40,6 +40,8 @@ import {
   ReadinessReport,
   TimelineEvent,
   fetchCaseSummaryPreview,
+  SearchHit,
+  searchCases,
 } from "@/lib/api/client";
 import { claimContract } from "@/lib/contracts/claimContract";
 
@@ -210,6 +212,30 @@ const initialCounterpartyForm: CounterpartyProfileCreateRequest = {
 const formatCounterpartyType = (type?: string) =>
   type ? counterpartyTypeLabels[type] ?? type.replace(/_/g, " ") : "Manual entry";
 
+const escapeSearchTerm = (value: string) =>
+  value.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+
+const highlightSearchTerm = (text: string, term: string) => {
+  if (!term) {
+    return [{ text, match: false }];
+  }
+  const regex = new RegExp(`(${escapeSearchTerm(term)})`, "gi");
+  const parts: Array<{ text: string; match: boolean }> = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null = null;
+  while ((match = regex.exec(text))) {
+    if (match.index > lastIndex) {
+      parts.push({ text: text.slice(lastIndex, match.index), match: false });
+    }
+    parts.push({ text: match[0], match: true });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    parts.push({ text: text.slice(lastIndex), match: false });
+  }
+  return parts.length ? parts : [{ text, match: false }];
+};
+
 type CaseDetailContentProps = {
   caseId: string;
 };
@@ -272,6 +298,11 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditError, setAuditError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"timeline" | "audit">("timeline");
+  const [caseSearchTerm, setCaseSearchTerm] = useState("");
+  const [caseActiveSearchTerm, setCaseActiveSearchTerm] = useState("");
+  const [caseSearchResults, setCaseSearchResults] = useState<SearchHit[]>([]);
+  const [caseSearchLoading, setCaseSearchLoading] = useState(false);
+  const [caseSearchError, setCaseSearchError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -413,6 +444,41 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
       setAuditLoading(false);
     }
   }, [caseId]);
+
+  const runCaseSearch = useCallback(
+    async (term: string) => {
+      const trimmed = term.trim();
+      if (!trimmed) {
+        setCaseSearchResults([]);
+        setCaseSearchError(null);
+        setCaseActiveSearchTerm("");
+        return;
+      }
+      setCaseSearchLoading(true);
+      setCaseSearchError(null);
+      try {
+        const results = await searchCases(trimmed, { caseId });
+        setCaseSearchResults(results);
+        setCaseActiveSearchTerm(trimmed);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unable to search case";
+        setCaseSearchError(message);
+      } finally {
+        setCaseSearchLoading(false);
+      }
+    },
+    [caseId]
+  );
+
+  const renderCaseSnippet = (text: string) =>
+    highlightSearchTerm(text, caseActiveSearchTerm).map((segment, index) => (
+      <span
+        key={`${segment.text}-${index}`}
+        className={segment.match ? "font-semibold text-slate-900" : "text-slate-500"}
+      >
+        {segment.text}
+      </span>
+    ));
 
   const refreshTemplatePreview = useCallback(async () => {
     setTemplateLoading(true);
@@ -947,11 +1013,77 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
                 {!templateLoading && !templateSummary && !templateError && (
                   <p>Preview will appear once the template renders.</p>
                 )}
-              </div>
-            </div>
-          </section>
+          </div>
+        </div>
+      </section>
 
-          <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
+      <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-900">Case search</h2>
+          <button
+            type="button"
+            onClick={() => {
+              setCaseSearchTerm("");
+              runCaseSearch("");
+            }}
+            className="rounded-full border border-slate-200 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500 transition hover:border-slate-900"
+          >
+            Clear
+          </button>
+        </div>
+        <form
+          className="flex gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            runCaseSearch(caseSearchTerm);
+          }}
+        >
+          <input
+            value={caseSearchTerm}
+            onChange={(event) => setCaseSearchTerm(event.target.value)}
+            placeholder="Search this case timeline, evidence, or summary."
+            className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:border-slate-900"
+          />
+          <button
+            type="submit"
+            className="rounded-2xl bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-slate-800"
+          >
+            Search
+          </button>
+        </form>
+        {caseSearchLoading && (
+          <div className="py-3 text-center">
+            <Loader />
+          </div>
+        )}
+        {caseSearchError && <StatusMessage variant="error">{caseSearchError}</StatusMessage>}
+        {!caseSearchLoading && !caseSearchError && caseSearchResults.length > 0 && (
+          <div className="space-y-3">
+            {caseSearchResults.map((hit) => (
+              <div
+                key={`${hit.source_type}-${hit.source_id}-${hit.score}`}
+                className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4"
+              >
+                <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.3em] text-slate-500">
+                  <span>{hit.source_type.replace(/_/g, " ")}</span>
+                  <span>{hit.match_field}</span>
+                </div>
+                <p className="mt-2 text-sm text-slate-700">
+                  {renderCaseSnippet(hit.snippet)}
+                </p>
+                <p className="mt-1 text-[11px] uppercase tracking-[0.3em] text-slate-400">
+                  Score {hit.score}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+        {!caseSearchLoading && !caseSearchError && !caseSearchResults.length && caseActiveSearchTerm && (
+          <StatusMessage>No matches for "{caseActiveSearchTerm}".</StatusMessage>
+        )}
+      </section>
+
+      <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">

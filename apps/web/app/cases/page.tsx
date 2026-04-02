@@ -8,8 +8,10 @@ import {
   CaseCreateRequest,
   CaseFilter,
   CaseSummary,
+  SearchHit,
   createCase,
   fetchCases,
+  searchCases,
 } from "@/lib/api/client";
 import { getToken } from "@/lib/session";
 import { Loader } from "@/components/Loader";
@@ -31,6 +33,30 @@ const statusOptions = [
   })),
 ];
 
+const escapeRegExp = (value: string) =>
+  value.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+
+const highlightText = (text: string, term: string) => {
+  if (!term) {
+    return [{ text, match: false }];
+  }
+  const regex = new RegExp(`(${escapeRegExp(term)})`, "gi");
+  const parts: Array<{ text: string; match: boolean }> = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null = null;
+  while ((match = regex.exec(text))) {
+    if (match.index > lastIndex) {
+      parts.push({ text: text.slice(lastIndex, match.index), match: false });
+    }
+    parts.push({ text: match[0], match: true });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    parts.push({ text: text.slice(lastIndex), match: false });
+  }
+  return parts.length ? parts : [{ text, match: false }];
+};
+
 export default function CasesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -47,6 +73,11 @@ export default function CasesPage() {
     due_date: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeSearchTerm, setActiveSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const filters: CaseFilter = useMemo(
     () => ({
@@ -68,6 +99,41 @@ export default function CasesPage() {
       setLoading(false);
     }
   }, [filters]);
+
+  const runSearch = useCallback(
+    async (term: string) => {
+      const trimmed = term.trim();
+      if (!trimmed) {
+        setSearchResults([]);
+        setSearchError(null);
+        setActiveSearchTerm("");
+        return;
+      }
+      setSearchLoading(true);
+      setSearchError(null);
+      try {
+        const results = await searchCases(trimmed);
+        setSearchResults(results);
+        setActiveSearchTerm(trimmed);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unable to search";
+        setSearchError(message);
+      } finally {
+        setSearchLoading(false);
+      }
+    },
+    []
+  );
+
+  const renderHighlightedSnippet = (text: string) =>
+    highlightText(text, activeSearchTerm).map((segment, index) => (
+      <span
+        key={`${segment.text}-${index}`}
+        className={segment.match ? "font-semibold text-slate-900" : "text-slate-500"}
+      >
+        {segment.text}
+      </span>
+    ));
 
   useEffect(() => {
     if (!getToken()) {
@@ -137,6 +203,76 @@ export default function CasesPage() {
         >
           New case
         </button>
+      </div>
+
+      <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
+            Workspace search
+          </h2>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm("");
+                runSearch("");
+              }}
+              className="rounded-full border border-slate-200 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500 transition hover:border-slate-900"
+            >
+              Clear
+            </button>
+            <button
+              type="submit"
+              form="workspace-search"
+              className="rounded-full bg-slate-900 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-slate-800"
+            >
+              Search
+            </button>
+          </div>
+        </div>
+        <form
+          id="workspace-search"
+          className="flex gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            runSearch(searchTerm);
+          }}
+        >
+          <input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search titles, summaries, evidence, or timeline notes."
+            className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:border-slate-900"
+          />
+        </form>
+        {searchLoading && (
+          <div className="py-4 text-center">
+            <Loader />
+          </div>
+        )}
+        {searchError && <StatusMessage variant="error">{searchError}</StatusMessage>}
+        {!searchLoading && !searchError && searchResults.length > 0 && (
+          <div className="space-y-3">
+            {searchResults.map((hit) => (
+              <Link
+                key={`${hit.case_id}-${hit.source_type}-${hit.score}-${hit.source_id}`}
+                href={`/cases/${hit.case_id}`}
+                className="block rounded-2xl border border-slate-200 bg-slate-50/80 p-3 transition hover:border-slate-900"
+              >
+                <div className="flex items-center justify-between text-xs uppercase tracking-[0.3em] text-slate-500">
+                  <span>{hit.source_type.replace(/_/g, " ")}</span>
+                  <span>{hit.match_field}</span>
+                </div>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{hit.case_title}</p>
+                <p className="mt-1 text-[11px] uppercase tracking-[0.3em] text-slate-400">Score {hit.score}</p>
+                <p className="mt-2 text-sm text-slate-600">{renderHighlightedSnippet(hit.snippet)}</p>
+              </Link>
+            ))}
+          </div>
+        )}
+        {!searchLoading && !searchError && !searchResults.length && activeSearchTerm && (
+          <StatusMessage>No matches for "{activeSearchTerm}".</StatusMessage>
+        )}
       </div>
 
       <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white/60 p-4 shadow-sm shadow-slate-900/5 md:grid-cols-2">

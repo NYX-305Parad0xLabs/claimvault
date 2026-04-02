@@ -9,6 +9,7 @@ from app.api.v1 import (
     cases_router,
     counterparties_router,
     health_router,
+    search_router,
 )
 from app.core.config import Settings
 from app.core.db import build_engine, build_session_factory
@@ -24,6 +25,7 @@ from app.services import (
     EvidenceService,
     ExportService,
     ReadinessService,
+    SearchService,
     Services,
     TimelineService,
 )
@@ -57,6 +59,7 @@ def create_app() -> FastAPI:
     summary_builder = CaseSummaryBuilder()
     readiness_service = ReadinessService(session_factory, logger)
     summary_service = CaseSummaryService(session_factory, summary_builder, readiness_service)
+    search_service = SearchService(session_factory)
     packager: VaultPackager
     if settings.vault_packager.lower() == "liquefy":
         packager = LiquefyPackager(logger)
@@ -77,10 +80,11 @@ def create_app() -> FastAPI:
         ),
         timeline_service=TimelineService(session_factory, logger),
         readiness_service=readiness_service,
-        counterparty_service=CounterpartyService(session_factory),
+        summary_service=summary_service,
         assistant_service=NoopCaseAssistantService(),
         lifecycle_service=lifecycle_service,
-        summary_service=summary_service,
+        counterparty_service=CounterpartyService(session_factory),
+        search_service=search_service,
     )
 
     app = FastAPI(
@@ -101,5 +105,6 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix="/api")
     app.include_router(cases_router, prefix="/api")
     app.include_router(counterparties_router, prefix="/api")
+    app.include_router(search_router, prefix="/api")
 
     return app
