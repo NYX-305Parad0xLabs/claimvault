@@ -28,6 +28,7 @@ from app.services import (
     SearchService,
     Services,
     TimelineService,
+    WorkflowPackService,
 )
 from app.services.case_assistant_service import NoopCaseAssistantService
 from app.services.packager import DefaultVaultPackager, LiquefyPackager, VaultPackager
@@ -58,7 +59,13 @@ def create_app() -> FastAPI:
     export_storage = LocalExportStorage(settings.export_root)
     summary_builder = CaseSummaryBuilder()
     readiness_service = ReadinessService(session_factory, logger)
-    summary_service = CaseSummaryService(session_factory, summary_builder, readiness_service)
+    workflow_pack_service = WorkflowPackService()
+    summary_service = CaseSummaryService(
+        session_factory,
+        summary_builder,
+        readiness_service,
+        workflow_pack_service,
+    )
     search_service = SearchService(session_factory)
     packager: VaultPackager
     if settings.vault_packager.lower() == "liquefy":
@@ -81,6 +88,7 @@ def create_app() -> FastAPI:
         timeline_service=TimelineService(session_factory, logger),
         readiness_service=readiness_service,
         summary_service=summary_service,
+        workflow_pack_service=workflow_pack_service,
         assistant_service=NoopCaseAssistantService(),
         lifecycle_service=lifecycle_service,
         counterparty_service=CounterpartyService(session_factory),

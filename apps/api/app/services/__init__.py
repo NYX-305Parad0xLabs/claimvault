@@ -11,6 +11,7 @@ from .readiness_service import ReadinessService
 from .timeline_service import TimelineService
 from .case_assistant_service import CaseAssistantService
 from .counterparty_service import CounterpartyService
+from .workflow_pack_service import WorkflowPackService
 from .search_service import SearchService
 
 
@@ -26,6 +27,7 @@ __all__ = [
     "CounterpartyService",
     "Services",
     "SearchService",
+    "WorkflowPackService",
 ]
 
 
@@ -42,4 +44,5 @@ class Services:
     assistant_service: CaseAssistantService
     lifecycle_service: CaseLifecycleService
     counterparty_service: CounterpartyService
+    workflow_pack_service: WorkflowPackService
     search_service: SearchService

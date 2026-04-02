@@ -127,10 +127,20 @@ export type CaseDetail = CaseSummary & {
   due_date?: string | null;
 };
 
+export type WorkflowPackTask = {
+  title: string;
+  description: string;
+  priority: number;
+  status: "open" | "complete";
+};
+
 export type CaseSummaryPreview = {
   case_id: number;
   claim_type: string;
   summary: string;
+  workflow_pack_name?: string | null;
+  workflow_pack_summary?: string | null;
+  workflow_pack_tasks: WorkflowPackTask[];
 };
 
 export type CaseUpdateRequest = {

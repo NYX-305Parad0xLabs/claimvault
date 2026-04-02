@@ -14,7 +14,7 @@ from app.models.claim import (
     MissingEvidenceCheck,
     TimelineEvent,
 )
-from app.schemas.readiness import ReadinessReport
+from app.schemas.readiness import ReadinessCheck, ReadinessReport
 
 
 @dataclass
@@ -214,6 +214,7 @@ class ReadinessService:
             missing = []
             recommended = []
             checks: list[MissingEvidenceCheck] = []
+            readiness_checks: list[ReadinessCheck] = []
             for rule in rules:
                 satisfied = rule.predicate(case, ctx)
                 checks.append(
@@ -232,6 +233,15 @@ class ReadinessService:
                         missing.append(rule.description)
                 elif not satisfied:
                     recommended.append(rule.description)
+                readiness_checks.append(
+                    ReadinessCheck(
+                        rule_key=rule.name,
+                        description=rule.description,
+                        required=rule.required,
+                        satisfied=satisfied,
+                        weight=rule.weight,
+                    )
+                )
             score = int(round((earned_required / required_weight) * 100)) if required_weight else 0
             blockers = missing.copy()
             if checks:
@@ -245,4 +255,5 @@ class ReadinessService:
                 missing=missing,
                 recommended=recommended,
                 blockers=blockers,
+                checks=readiness_checks,
             )

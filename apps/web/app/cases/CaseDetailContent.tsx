@@ -16,6 +16,7 @@ import {
   ApiError,
   AuditEvent,
   CaseDetail,
+  CaseSummaryPreview,
   CaseTransitionRequest,
   CaseUpdateRequest,
   CounterpartyProfile,
@@ -252,7 +253,7 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
   const [summarySaving, setSummarySaving] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [summaryMessage, setSummaryMessage] = useState<string | null>(null);
-  const [templateSummary, setTemplateSummary] = useState<string | null>(null);
+  const [templatePreview, setTemplatePreview] = useState<CaseSummaryPreview | null>(null);
   const [templateLoading, setTemplateLoading] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
 
@@ -485,7 +486,7 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
     setTemplateError(null);
     try {
       const preview = await fetchCaseSummaryPreview(caseId);
-      setTemplateSummary(preview.summary);
+      setTemplatePreview(preview);
     } catch (err) {
       const message =
         err instanceof ApiError ? err.message : "Unable to load template summary";
@@ -1005,17 +1006,54 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
                 {!templateLoading && templateError && (
                   <StatusMessage variant="error">{templateError}</StatusMessage>
                 )}
-                {!templateLoading && !templateError && templateSummary && (
-                  <pre className="whitespace-pre-wrap text-[11px] text-slate-800">
-                    {templateSummary}
-                  </pre>
+                {!templateLoading && !templateError && templatePreview?.summary && (
+                  <>
+                    {templatePreview.workflow_pack_name && (
+                      <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
+                        {templatePreview.workflow_pack_name} —{" "}
+                        {templatePreview.workflow_pack_summary}
+                      </p>
+                    )}
+                    <pre className="whitespace-pre-wrap text-[11px] text-slate-800">
+                      {templatePreview.summary}
+                    </pre>
+                    {templatePreview.workflow_pack_tasks.length > 0 && (
+                      <div className="mt-4 space-y-2 rounded-2xl border border-slate-100 bg-slate-50/80 p-3 text-[11px] text-slate-700">
+                        <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
+                          Workflow tasks
+                        </p>
+                        <div className="space-y-2">
+                          {templatePreview.workflow_pack_tasks.map((task) => (
+                            <div
+                              key={task.title}
+                              className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2 text-[11px]"
+                            >
+                              <div>
+                                <p className="font-semibold text-slate-900">{task.title}</p>
+                                <p className="text-slate-500">{task.description}</p>
+                              </div>
+                              <span
+                                className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] ${
+                                  task.status === "open"
+                                    ? "bg-amber-100 text-amber-700 border border-amber-200"
+                                    : "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                                }`}
+                              >
+                                {task.status === "open" ? "Open" : "Complete"}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
-                {!templateLoading && !templateSummary && !templateError && (
+                {!templateLoading && !templatePreview?.summary && !templateError && (
                   <p>Preview will appear once the template renders.</p>
                 )}
-          </div>
-        </div>
-      </section>
+              </div>
+            </div>
+          </section>
 
       <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex items-center justify-between">

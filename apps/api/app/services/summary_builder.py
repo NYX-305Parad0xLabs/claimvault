@@ -11,6 +11,7 @@ from app.models.claim import (
     TimelineEvent,
 )
 from app.schemas.readiness import ReadinessReport
+from app.workflow.packs import WorkflowPack
 
 
 class CaseSummaryBuilder:
@@ -21,6 +22,7 @@ class CaseSummaryBuilder:
         timeline: Sequence[TimelineEvent],
         readiness: ReadinessReport,
         counterparty: CounterpartyProfile | None,
+        workflow_pack: WorkflowPack | None,
     ) -> str:
         sorted_timeline = self._sort_timeline(timeline)
         lines: list[str] = [
@@ -43,6 +45,17 @@ class CaseSummaryBuilder:
         ]
         lines.extend(self._render_counterparty_section(case, counterparty))
         lines.extend(self._render_readiness_section(readiness))
+        if workflow_pack:
+            lines.extend(
+                [
+                    "",
+                    "## Workflow pack",
+                    f"- Pack: {workflow_pack.name}",
+                    f"- Focus: {workflow_pack.summary}",
+                    f"- Export tone: {workflow_pack.export_focus}",
+                    f"- Why chosen: {workflow_pack.why_chosen}",
+                ]
+            )
         lines.extend(self._render_claim_section(case, evidence, sorted_timeline, readiness, counterparty))
         lines.extend(self._render_evidence_section(evidence))
         lines.extend(self._render_timeline_section(sorted_timeline))

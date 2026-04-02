@@ -20,9 +20,11 @@ import { claimContract } from "@/lib/contracts/claimContract";
 
 const claimTypes = [
   { value: "", label: "All claim types" },
-  { value: "return", label: "Return" },
-  { value: "dispute", label: "Dispute" },
+  { value: "refund", label: "Refund" },
   { value: "warranty", label: "Warranty" },
+  { value: "chargeback_prep", label: "Chargeback prep" },
+  { value: "shipment_damage", label: "Shipment damage" },
+  { value: "rental_deposit", label: "Rental deposit" },
 ];
 
 const statusOptions = [
@@ -32,6 +34,22 @@ const statusOptions = [
     label: entry.replace(/_/g, " "),
   })),
 ];
+
+type PresetKey = "refund" | "rental_deposit";
+
+const creationPresets: Record<PresetKey, { title: string; summary: string; merchant_name?: string; due_date?: string }> =
+  {
+    refund: {
+      title: "Refund — return request",
+      summary: "Request a refund with order details, timeline, and merchant context.",
+      merchant_name: "Merchant name",
+    },
+    rental_deposit: {
+      title: "Rental deposit dispute",
+      summary: "Document move-out condition, deductions, and landlord communication.",
+      merchant_name: "Property manager",
+    },
+  };
 
 const escapeRegExp = (value: string) =>
   value.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
@@ -188,6 +206,18 @@ export default function CasesPage() {
     }
   }
 
+  function applyPreset(presetKey: PresetKey) {
+    const preset = creationPresets[presetKey];
+    setFormValues({
+      title: preset.title,
+      comment: preset.summary,
+      claim_type: presetKey,
+      merchant_name: preset.merchant_name ?? "",
+      due_date: preset.due_date ?? "",
+    });
+    setModalOpen(true);
+  }
+
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -202,6 +232,25 @@ export default function CasesPage() {
           className="rounded-full bg-slate-900 px-5 py-2 text-xs font-semibold uppercase tracking-[0.4em] text-white transition hover:bg-slate-800"
         >
           New case
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.4em] text-slate-500">
+          Workflow presets
+        </span>
+        <button
+          type="button"
+          onClick={() => applyPreset("refund")}
+          className="rounded-2xl border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-700 transition hover:border-slate-900"
+        >
+          Refund pack
+        </button>
+        <button
+          type="button"
+          onClick={() => applyPreset("rental_deposit")}
+          className="rounded-2xl border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-700 transition hover:border-slate-900"
+        >
+          Rental deposit pack
         </button>
       </div>
 
