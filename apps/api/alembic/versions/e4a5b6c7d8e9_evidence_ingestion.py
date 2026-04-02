@@ -57,26 +57,30 @@ def upgrade() -> None:
         "evidenceitem",
         sa.Column("deleted_by", sa.Integer(), nullable=True),
     )
-    op.create_foreign_key(
-        op.f("fk_evidenceitem_deleted_by"),
-        "evidenceitem",
-        "user",
-        ["deleted_by"],
-        ["id"],
-    )
+    with op.batch_alter_table("evidenceitem") as batch_op:
+        batch_op.create_foreign_key(
+            op.f("fk_evidenceitem_deleted_by"),
+            "user",
+            ["deleted_by"],
+            ["id"],
+        )
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        op.f("fk_evidenceitem_deleted_by"),
-        "evidenceitem",
-        type_="foreignkey",
-    )
-    op.drop_column("evidenceitem", "deleted_by")
-    op.drop_column("evidenceitem", "deleted_at")
-    op.drop_column("evidenceitem", "manual_relevance")
-    op.drop_column("evidenceitem", "description")
-    op.drop_column("evidenceitem", "event_date")
-    op.drop_column("evidenceitem", "platform_label")
-    op.drop_column("evidenceitem", "carrier_label")
-    op.drop_column("evidenceitem", "merchant_label")
+    with op.batch_alter_table("evidenceitem") as batch_op:
+        batch_op.drop_constraint(
+            op.f("fk_evidenceitem_deleted_by"),
+            type_="foreignkey",
+        )
+    for column in (
+        "deleted_by",
+        "deleted_at",
+        "manual_relevance",
+        "description",
+        "event_date",
+        "platform_label",
+        "carrier_label",
+        "merchant_label",
+    ):
+        with op.batch_alter_table("evidenceitem") as batch_op:
+            batch_op.drop_column(column)

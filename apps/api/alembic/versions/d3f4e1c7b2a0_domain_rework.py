@@ -19,6 +19,8 @@ down_revision: Union[str, None] = "a0c2e1b8d051"
 branch_labels: Union[str, None] = None
 depends_on: Union[str, None] = None
 
+EXTRACTION_STATUS_ENUM = sa.Enum("pending", "completed", "failed", name="extractionstatus")
+
 
 def upgrade() -> None:
     op.create_table(
@@ -59,28 +61,25 @@ def upgrade() -> None:
         unique=False,
     )
 
-    op.add_column(
-        "case",
-        sa.Column("template_id", sa.Integer(), nullable=True),
-    )
-    op.add_column(
-        "case",
-        sa.Column("counterparty_profile_id", sa.Integer(), nullable=True),
-    )
-    op.create_foreign_key(
-        op.f("fk_case_template_id"),
-        "case",
-        "claimtemplate",
-        ["template_id"],
-        ["id"],
-    )
-    op.create_foreign_key(
-        op.f("fk_case_counterparty_profile_id"),
-        "case",
-        "counterpartyprofile",
-        ["counterparty_profile_id"],
-        ["id"],
-    )
+    with op.batch_alter_table("case") as batch_op:
+        batch_op.add_column(
+            sa.Column("template_id", sa.Integer(), nullable=True),
+        )
+        batch_op.add_column(
+            sa.Column("counterparty_profile_id", sa.Integer(), nullable=True),
+        )
+        batch_op.create_foreign_key(
+            op.f("fk_case_template_id"),
+            "claimtemplate",
+            ["template_id"],
+            ["id"],
+        )
+        batch_op.create_foreign_key(
+            op.f("fk_case_counterparty_profile_id"),
+            "counterpartyprofile",
+            ["counterparty_profile_id"],
+            ["id"],
+        )
 
     op.create_table(
         "missing_evidence_check",
@@ -122,11 +121,12 @@ def upgrade() -> None:
         unique=False,
     )
 
+    EXTRACTION_STATUS_ENUM.create(op.get_bind(), checkfirst=False)
     op.add_column(
         "evidenceitem",
         sa.Column(
             "extraction_status",
-            sa.Enum("pending", "completed", "failed", name="extractionstatus"),
+            EXTRACTION_STATUS_ENUM,
             nullable=False,
             server_default="pending",
         ),
@@ -137,22 +137,17 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.add_column(
-        "case",
-        sa.Column("counterparty_profile_id", sa.Integer(), nullable=True),
-    )
-    op.drop_constraint(
-        op.f("fk_case_counterparty_profile_id"),
-        "case",
-        type_="foreignkey",
-    )
-    op.drop_constraint(
-        op.f("fk_case_template_id"),
-        "case",
-        type_="foreignkey",
-    )
-    op.drop_column("case", "counterparty_profile_id")
-    op.drop_column("case", "template_id")
+    with op.batch_alter_table("case") as batch_op:
+        batch_op.drop_constraint(
+            op.f("fk_case_counterparty_profile_id"),
+            type_="foreignkey",
+        )
+        batch_op.drop_constraint(
+            op.f("fk_case_template_id"),
+            type_="foreignkey",
+        )
+        batch_op.drop_column("counterparty_profile_id")
+        batch_op.drop_column("template_id")
 
     op.drop_index(op.f("ix_exportartifact_case_id"), table_name="exportartifact")
     op.drop_table("exportartifact")
@@ -164,6 +159,7 @@ def downgrade() -> None:
     op.drop_table("missing_evidence_check")
 
     op.drop_column("evidenceitem", "extraction_status")
+    EXTRACTION_STATUS_ENUM.drop(op.get_bind(), checkfirst=False)
 
     op.drop_index(
         op.f("ix_claimtemplate_workspace_id"),
