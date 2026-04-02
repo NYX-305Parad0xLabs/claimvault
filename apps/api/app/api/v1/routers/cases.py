@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import FileResponse
 
 from app.api.v1.deps import (
     get_case_service,
     get_current_workspace_member,
     require_workspace_role,
+    get_evidence_service,
 )
 from app.models import WorkspaceMembership, WorkspaceRole
 from app.models.claim import CaseStatus, ClaimType
@@ -15,12 +17,18 @@ from app.schemas.case import (
     CaseTransitionRequest,
     CaseUpdate,
 )
+from app.schemas.evidence import EvidenceRead
 from app.services.case_service import CaseService, CaseServiceError
+from app.services.evidence_service import EvidenceService, EvidenceServiceError
 
 router = APIRouter(prefix="/cases", tags=["cases"])
 
 
 def _handle_case_error(error: CaseServiceError) -> HTTPException:
+    return HTTPException(status_code=error.status_code, detail=error.detail)
+
+
+def _handle_evidence_error(error: EvidenceServiceError) -> HTTPException:
     return HTTPException(status_code=error.status_code, detail=error.detail)
 
 
@@ -100,3 +108,54 @@ def transition_case(
         )
     except CaseServiceError as error:
         raise _handle_case_error(error)
+
+
+@router.get("/{case_id}/evidence", response_model=list[EvidenceRead])
+def list_evidence(
+    case_id: int,
+    workspace_member: WorkspaceMembership = Depends(get_current_workspace_member),
+    evidence_service: EvidenceService = Depends(get_evidence_service),
+) -> list[EvidenceRead]:
+    try:
+        return evidence_service.list_evidence(workspace_member.workspace_id, case_id)
+    except EvidenceServiceError as error:
+        raise _handle_evidence_error(error)
+
+
+@router.post("/{case_id}/evidence", response_model=EvidenceRead, status_code=status.HTTP_201_CREATED)
+async def upload_evidence(
+    case_id: int,
+    file: UploadFile = File(...),
+    evidence_service: EvidenceService = Depends(get_evidence_service),
+    workspace_member: WorkspaceMembership = Depends(
+        require_workspace_role(WorkspaceRole.OWNER, WorkspaceRole.OPERATOR)
+    ),
+) -> EvidenceRead:
+    content = await file.read()
+    try:
+        return evidence_service.upload_evidence(
+            workspace_member.workspace_id,
+            case_id,
+            file.filename,
+            content,
+            actor_id=workspace_member.user_id,
+            source_label="upload",
+        )
+    except EvidenceServiceError as error:
+        raise _handle_evidence_error(error)
+
+
+@router.get("/{case_id}/evidence/{evidence_id}/download")
+def download_evidence(
+    case_id: int,
+    evidence_id: int,
+    evidence_service: EvidenceService = Depends(get_evidence_service),
+    workspace_member: WorkspaceMembership = Depends(get_current_workspace_member),
+) -> FileResponse:
+    try:
+        evidence, path = evidence_service.get_evidence(
+            workspace_member.workspace_id, case_id, evidence_id
+        )
+    except EvidenceServiceError as error:
+        raise _handle_evidence_error(error)
+    return FileResponse(path, media_type=evidence.mime_type, filename=evidence.original_filename)
