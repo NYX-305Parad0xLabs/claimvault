@@ -1,0 +1,31 @@
+{
+  "$id": "https://example.com/schemas/claim.json",
+  "title": "Claim",
+  "description": "A structured proof statement captured by ClaimVault",
+  "type": "object",
+  "required": [
+    "subject",
+    "status",
+    "payload"
+  ],
+  "properties": {
+    "subject": {
+      "type": "string",
+      "description": "Identifier for the entity the claim is about"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "pending", "verified", "rejected"],
+      "description": "Lifecycle status of the claim"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Claim payload that will be hashed or referenced in proofs"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Arbitrary metadata for operators, such as batch IDs or source references"
+    }
+  },
+  "additionalProperties": false
+}

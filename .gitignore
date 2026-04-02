@@ -1,0 +1,42 @@
+# System
+.DS_Store
+Thumbs.db
+.idea
+.vscode
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+env/
+.venv/
+.venv
+*.sqlite3
+*.db
+*.egg-info/
+dist/
+build/
+
+# FastAPI
+apps/api/__pycache__/
+apps/api/.venv/
+apps/api/claimvault.db
+
+# Node
+node_modules/
+apps/web/.next/
+apps/web/.turbo/
+apps/web/.vercel/
+apps/web/out/
+apps/web/.env.local
+apps/web/.env.development.local
+apps/web/.env.production.local
+
+# Tools
+.env
+pip-wheel-metadata/
+
+# IDE
+*.iml
