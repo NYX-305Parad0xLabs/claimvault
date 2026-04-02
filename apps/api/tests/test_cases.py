@@ -5,7 +5,15 @@ from datetime import datetime, timedelta
 import pytest
 from sqlmodel import select
 
-from app.models import AuditEvent, CaseStatus, EvidenceItem, ExtractionStatus, TimelineEvent
+from app.models import (
+    AuditEvent,
+    CaseStatus,
+    CounterpartyProfile,
+    CounterpartyType,
+    EvidenceItem,
+    ExtractionStatus,
+    TimelineEvent,
+)
 
 
 async def _auth_headers(async_client):
@@ -58,6 +66,40 @@ async def test_case_crud(async_client):
     assert updated.status_code == 200
     assert updated.json()["summary"] == update_payload["summary"]
     assert updated.json()["status"] == CaseStatus.DRAFT
+
+
+@pytest.mark.asyncio
+async def test_case_detail_includes_counterparty_profile(async_client, app_instance):
+    headers = await _auth_headers(async_client)
+    me = await async_client.get("/api/auth/me", headers=headers)
+    workspace_id = me.json()["membership"]["workspace_id"]
+    session_factory = app_instance.state.session_factory
+    with session_factory() as session:
+        profile = CounterpartyProfile(
+            workspace_id=workspace_id,
+            name="Merchant Partner",
+            profile_type=CounterpartyType.MERCHANT,
+            website="https://merchant.example",
+            support_email="ops@merchant.example",
+            support_url="https://merchant.example/support",
+            notes="Preferred partner",
+        )
+        session.add(profile)
+        session.commit()
+        session.refresh(profile)
+
+    payload = {
+        "title": "Counterparty case",
+        "claim_type": "refund",
+        "summary": "Counterparty detail story",
+        "counterparty_profile_id": profile.id,
+    }
+    created = await async_client.post("/api/cases/", json=payload, headers=headers)
+    assert created.status_code == 201
+    data = created.json()
+    assert data["counterparty_profile"]["name"] == profile.name
+    assert data["counterparty_profile"]["support_email"] == profile.support_email
+    assert data["counterparty_profile"]["profile_type"] == CounterpartyType.MERCHANT
 
 
 @pytest.mark.asyncio

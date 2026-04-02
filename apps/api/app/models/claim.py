@@ -83,6 +83,7 @@ class CounterpartyType(str, Enum):
     LANDLORD = "landlord"
     CARRIER = "carrier"
     MANUFACTURER = "manufacturer"
+    MARKETPLACE = "marketplace"
 
 
 class User(SQLModel, table=True):
@@ -121,6 +122,10 @@ class CounterpartyProfile(SQLModel, table=True):
     workspace_id: int = Field(foreign_key="workspace.id", index=True)
     name: str
     profile_type: CounterpartyType
+    website: str | None = None
+    support_email: str | None = None
+    support_url: str | None = None
+    notes: str | None = None
     metadata_json: dict[str, Any] = Field(
         default_factory=dict,
         sa_column=Column(JSON, nullable=False, server_default="{}"),

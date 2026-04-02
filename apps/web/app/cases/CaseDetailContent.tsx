@@ -153,6 +153,17 @@ const describeAuditMetadata = (event: AuditEvent) => {
   return details;
 };
 
+const counterpartyTypeLabels: Record<string, string> = {
+  merchant: "Merchant",
+  landlord: "Landlord",
+  carrier: "Carrier",
+  manufacturer: "Manufacturer",
+  marketplace: "Marketplace",
+};
+
+const formatCounterpartyType = (type?: string) =>
+  type ? counterpartyTypeLabels[type] ?? type.replace(/_/g, " ") : "Manual entry";
+
 type CaseDetailContentProps = {
   caseId: string;
 };
@@ -419,6 +430,13 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
     return null;
   }
 
+  const counterpartyProfile = caseDetail.counterparty_profile;
+  const counterpartyDisplayName =
+    counterpartyProfile?.name ?? caseDetail.counterparty_name ?? "Unnamed counterparty";
+  const counterpartyTypeLabel = counterpartyProfile
+    ? formatCounterpartyType(counterpartyProfile.profile_type)
+    : "Manual entry";
+
   const availableTransitions = workflowTransitions[caseDetail.status] ?? [];
 
   return (
@@ -439,6 +457,66 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
           </div>
         </div>
       </header>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Counterparty</p>
+            <h2 className="text-2xl font-semibold text-slate-900">{counterpartyDisplayName}</h2>
+          </div>
+          <span className="text-xs uppercase tracking-[0.3em] text-slate-500">
+            {counterpartyTypeLabel}
+          </span>
+        </div>
+        <div className="mt-4 grid gap-4 text-sm text-slate-600 sm:grid-cols-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">Website</p>
+            {counterpartyProfile?.website ? (
+              <a
+                href={counterpartyProfile.website}
+                target="_blank"
+                rel="noreferrer"
+                className="text-slate-900 underline-offset-2 transition hover:text-slate-700"
+              >
+                {counterpartyProfile.website}
+              </a>
+            ) : (
+              <p className="text-sm text-slate-500">Not provided</p>
+            )}
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">Support email</p>
+            {counterpartyProfile?.support_email ? (
+              <a
+                href={`mailto:${counterpartyProfile.support_email}`}
+                className="text-slate-900 underline-offset-2 transition hover:text-slate-700"
+              >
+                {counterpartyProfile.support_email}
+              </a>
+            ) : (
+              <p className="text-sm text-slate-500">Not provided</p>
+            )}
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">Support URL</p>
+            {counterpartyProfile?.support_url ? (
+              <a
+                href={counterpartyProfile.support_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-slate-900 underline-offset-2 transition hover:text-slate-700"
+              >
+                {counterpartyProfile.support_url}
+              </a>
+            ) : (
+              <p className="text-sm text-slate-500">Not provided</p>
+            )}
+          </div>
+        </div>
+        <p className="mt-4 text-sm text-slate-600">
+          {counterpartyProfile?.notes ?? "No additional counterparty details recorded."}
+        </p>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-[1.45fr,0.85fr]">
         <div className="space-y-6">

@@ -138,6 +138,32 @@ def test_missing_evidence_check(session_factory):
         assert checks[0].rule_key == "order_reference"
 
 
+def test_counterparty_profile_stores_metadata(session_factory):
+    with session_factory() as session:
+        workspace = Workspace(name="Tracker")
+        session.add(workspace)
+        session.commit()
+        session.refresh(workspace)
+
+        profile = CounterpartyProfile(
+            workspace_id=workspace.id,
+            name="Field Merchant",
+            profile_type=CounterpartyType.MERCHANT,
+            website="https://partner.example",
+            support_email="ops@partner.example",
+            support_url="https://partner.example/support",
+            notes="Regional partner",
+        )
+        session.add(profile)
+        session.commit()
+        session.refresh(profile)
+
+        assert profile.website == "https://partner.example"
+        assert profile.support_email == "ops@partner.example"
+        assert profile.support_url == "https://partner.example/support"
+        assert profile.notes == "Regional partner"
+
+
 def test_timeline_event_metadata(session_factory):
     with session_factory() as session:
         workspace = Workspace(name="Tracker")

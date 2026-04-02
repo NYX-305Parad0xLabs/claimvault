@@ -24,7 +24,7 @@ Every readiness rule evaluation writes a MissingEvidenceCheck entry so the syste
 Deterministic export bundles (summary, case/timeline/evidence metadata, checksums) are tracked as ExportArtifact. Each row stores manifest/ archive hashes, metadata JSON, and the storage key so proofs can be validated later.
 
 ## CounterpartyProfile
-Lightweight merchants, landlords, carriers, or manufacturers that provide reusable metadata per workspace. Cases can reference profiles when the same counterparty handles multiple claims.
+Lightweight merchants, landlords, carriers, manufacturers, or marketplaces that provide reusable metadata per workspace. Each profile tracks an optional website, support email, support URL, and notes alongside the metadata JSON so the same counterparty can be referenced across claims without building a full CRM. Cases point to a profile via `counterparty_profile_id` but can still override `counterparty_name` when a title needs to differ from the canonical record.
 
 ## ClaimTemplate
 Future-ready templates describe required evidence sets per workspace, letting readiness scoring and exports adapt to different lines of business.

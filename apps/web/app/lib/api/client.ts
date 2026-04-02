@@ -73,13 +73,29 @@ export type CaseSummary = {
   title: string;
   status: string;
   claim_type: string;
+  counterparty_name?: string | null;
+  counterparty_profile_id?: number | null;
   merchant_name?: string | null;
   due_date?: string | null;
   summary?: string | null;
   updated_at: string;
 };
 
+export type CounterpartyProfile = {
+  id: number;
+  workspace_id: number;
+  name: string;
+  profile_type: string;
+  website?: string | null;
+  support_email?: string | null;
+  support_url?: string | null;
+  notes?: string | null;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+};
+
 export type CaseDetail = CaseSummary & {
+  counterparty_profile?: CounterpartyProfile | null;
   order_reference?: string | null;
   amount_value: number;
   created_at: string;
@@ -90,6 +106,7 @@ export type CaseUpdateRequest = {
   title?: string;
   summary?: string | null;
   counterparty_name?: string | null;
+  counterparty_profile_id?: number | null;
   merchant_name?: string | null;
   order_reference?: string | null;
   amount_currency?: string | null;
@@ -137,6 +154,8 @@ export type CaseCreateRequest = {
   title: string;
   claim_type: string;
   summary: string;
+  counterparty_name?: string;
+  counterparty_profile_id?: number;
   merchant_name?: string;
   order_reference?: string;
   due_date?: string;

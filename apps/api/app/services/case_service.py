@@ -7,7 +7,7 @@ from typing import Callable
 from fastapi import status
 from sqlmodel import Session, select
 
-from app.models.claim import ActorType, AuditEvent, Case, CaseStatus, TimelineEvent
+from app.models.claim import ActorType, AuditEvent, Case, CaseStatus, ClaimType, CounterpartyProfile, TimelineEvent
 from app.schemas.case import CaseCreate, CaseRead, CaseTransitionRequest, CaseUpdate
 from app.services.case_state_machine import CaseStateMachine, InvalidCaseTransition
 
@@ -54,14 +54,17 @@ class CaseService:
                     .offset(offset)
                 )
             ).all()
-            return [CaseRead.model_validate(case) for case in cases]
+            return [self._build_case_read(case) for case in cases]
 
     def get_case(self, workspace_id: int, case_id: int) -> CaseRead:
         with self._session_factory() as session:
             case = session.get(Case, case_id)
             if not case or case.workspace_id != workspace_id:
                 raise CaseServiceError("case not found", status.HTTP_404_NOT_FOUND)
-            return CaseRead.model_validate(case)
+            profile = self._maybe_load_counterparty_profile(
+                session, workspace_id, case.counterparty_profile_id
+            )
+            return self._build_case_read(case, profile)
 
     def create_case(
         self,
@@ -71,11 +74,19 @@ class CaseService:
         actor_id: int | None = None,
     ) -> CaseRead:
         with self._session_factory() as session:
+            profile = None
+            profile_id = payload.counterparty_profile_id
+            if profile_id is not None:
+                profile = self._validate_counterparty_profile(
+                    session, workspace_id, profile_id
+                )
+            counterparty_name = payload.counterparty_name or (profile.name if profile else None)
             case = Case(
                 workspace_id=workspace_id,
                 title=payload.title,
                 claim_type=payload.claim_type,
-                counterparty_name=payload.counterparty_name,
+                counterparty_name=counterparty_name,
+                counterparty_profile_id=profile_id,
                 merchant_name=payload.merchant_name,
                 order_reference=payload.order_reference,
                 amount_currency=payload.amount_currency,
@@ -101,7 +112,7 @@ class CaseService:
             session.commit()
             session.refresh(case)
             self._logger.info("case created", extra={"case_id": case.id})
-            return CaseRead.model_validate(case)
+            return self._build_case_read(case, profile)
 
     def update_case(
         self,
@@ -117,6 +128,10 @@ class CaseService:
                 raise CaseServiceError("case not found", status.HTTP_404_NOT_FOUND)
 
             updates = payload.model_dump(exclude_none=True)
+            if "counterparty_profile_id" in updates:
+                profile_id = updates["counterparty_profile_id"]
+                if profile_id is not None:
+                    self._validate_counterparty_profile(session, workspace_id, profile_id)
             for attr, value in updates.items():
                 setattr(case, attr, value)
             case.updated_at = datetime.utcnow()
@@ -133,7 +148,10 @@ class CaseService:
                 )
             session.commit()
             session.refresh(case)
-            return CaseRead.model_validate(case)
+            profile = self._maybe_load_counterparty_profile(
+                session, workspace_id, case.counterparty_profile_id
+            )
+            return self._build_case_read(case, profile)
 
     def transition_case(
         self,
@@ -183,7 +201,40 @@ class CaseService:
             )
             session.commit()
             session.refresh(case)
-            return CaseRead.model_validate(case)
+            profile = self._maybe_load_counterparty_profile(
+                session, workspace_id, case.counterparty_profile_id
+            )
+            return self._build_case_read(case, profile)
+
+    def _build_case_read(
+        self,
+        case: Case,
+        profile: CounterpartyProfile | None = None,
+    ) -> CaseRead:
+        payload = case.model_dump()
+        payload["counterparty_profile"] = profile.model_dump() if profile else None
+        return CaseRead.model_validate(payload)
+
+    def _maybe_load_counterparty_profile(
+        self,
+        session: Session,
+        workspace_id: int,
+        profile_id: int | None,
+    ) -> CounterpartyProfile | None:
+        if profile_id is None:
+            return None
+        return self._validate_counterparty_profile(session, workspace_id, profile_id)
+
+    def _validate_counterparty_profile(
+        self,
+        session: Session,
+        workspace_id: int,
+        profile_id: int,
+    ) -> CounterpartyProfile:
+        profile = session.get(CounterpartyProfile, profile_id)
+        if not profile or profile.workspace_id != workspace_id:
+            raise CaseServiceError("counterparty profile not found", status.HTTP_404_NOT_FOUND)
+        return profile
 
     @staticmethod
     def _build_transition_body(

@@ -8,11 +8,14 @@ from sqlmodel import SQLModel, Field
 
 from app.models.claim import CaseStatus, ClaimType
 
+from app.schemas.counterparty import CounterpartyProfileRead
+
 
 class CaseCreate(SQLModel):
     title: str
     claim_type: ClaimType
     counterparty_name: Optional[str] = None
+    counterparty_profile_id: Optional[int] = None
     merchant_name: Optional[str] = None
     order_reference: Optional[str] = None
     amount_currency: str = Field(default="USD")
@@ -30,6 +33,8 @@ class CaseRead(SQLModel):
     claim_type: ClaimType
     status: CaseStatus
     counterparty_name: Optional[str]
+    counterparty_profile_id: Optional[int]
+    counterparty_profile: CounterpartyProfileRead | None = None
     merchant_name: Optional[str]
     order_reference: Optional[str]
     amount_currency: str
@@ -48,6 +53,7 @@ class CaseRead(SQLModel):
 class CaseUpdate(SQLModel):
     title: Optional[str] = None
     counterparty_name: Optional[str] = None
+    counterparty_profile_id: Optional[int] = None
     merchant_name: Optional[str] = None
     order_reference: Optional[str] = None
     amount_currency: Optional[str] = None
