@@ -13,11 +13,12 @@ from app.services import (
     AuthService,
     CaseService,
     EvidenceService,
+    ExportService,
     ReadinessService,
     Services,
     TimelineService,
 )
-from app.storage import LocalEvidenceStorage
+from app.storage import LocalEvidenceStorage, LocalExportStorage
 
 
 @asynccontextmanager
@@ -39,11 +40,13 @@ def create_app() -> FastAPI:
     engine = build_engine(settings)
     session_factory = build_session_factory(engine)
 
-    storage = LocalEvidenceStorage(settings.evidence_root)
+    evidence_storage = LocalEvidenceStorage(settings.evidence_root)
+    export_storage = LocalExportStorage(settings.export_root)
     services = Services(
         case_service=CaseService(session_factory, logger),
         auth_service=AuthService(session_factory, settings, logger),
-        evidence_service=EvidenceService(session_factory, storage, settings, logger),
+        evidence_service=EvidenceService(session_factory, evidence_storage, settings, logger),
+        export_service=ExportService(session_factory, evidence_storage, export_storage, logger),
         timeline_service=TimelineService(session_factory, logger),
         readiness_service=ReadinessService(session_factory, logger),
     )

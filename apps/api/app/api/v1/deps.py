@@ -11,6 +11,7 @@ from app.services import (
     AuthService,
     CaseService,
     EvidenceService,
+    ExportService,
     ReadinessService,
     Services,
     TimelineService,
@@ -48,6 +49,10 @@ def get_timeline_service(services: Services = Depends(get_services)) -> Timeline
 
 def get_readiness_service(services: Services = Depends(get_services)) -> ReadinessService:
     return services.readiness_service
+
+
+def get_export_service(services: Services = Depends(get_services)) -> ExportService:
+    return services.export_service
 
 
 def _unauthorized(detail: str = "Unauthorized") -> HTTPException:

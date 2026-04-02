@@ -17,6 +17,8 @@ Protected routes require the `Authorization: Bearer <token>` header. The test se
 - `POST /api/cases/{id}/notes`: add or correct user-created note entries (immutable history, corrections tracked via `corrects_event_id` metadata).
 - Timeline entries can reference evidence (optional `evidence_id`) and each write generates a matching audit record.
 - `GET /api/cases/{id}/readiness`: run the lightweight rules engine to surface missing evidence, recommended artifacts, and blockers before exporting a case.
+- `POST /api/cases/{id}/exports`: generate a deterministic `zip` bundle that includes `summary.md`, JSON payloads, evidence, and `checksums.txt`.
+- `GET /api/cases/{id}/exports/{export_id}/download`: retrieve the generated export archive for audit or reviewer handoff.
 
 ## Running locally
 1. Copy `.env.example` to `.env` and adjust values (especially `SECRET_KEY` and `DATABASE_URL`).

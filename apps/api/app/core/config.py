@@ -19,6 +19,10 @@ def default_evidence_root() -> Path:
     return app_data_dir("claimvault") / "evidence"
 
 
+def default_export_root() -> Path:
+    return app_data_dir("claimvault") / "exports"
+
+
 class Settings(BaseSettings):
     model_config = ConfigDict(env_file=".env", env_file_encoding="utf-8")
 
@@ -34,3 +38,4 @@ class Settings(BaseSettings):
     token_algorithm: str = "HS256"
     evidence_root: Path = Field(default_factory=default_evidence_root)
     max_evidence_size_bytes: int = 10 * 1024 * 1024
+    export_root: Path = Field(default_factory=default_export_root)

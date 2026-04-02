@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
+from pathlib import Path
 
 from app.api.v1.deps import (
     get_case_service,
     get_current_workspace_member,
     require_workspace_role,
     get_evidence_service,
+    get_export_service,
     get_readiness_service,
     get_timeline_service,
 )
@@ -20,6 +22,7 @@ from app.schemas.case import (
     CaseUpdate,
 )
 from app.schemas.evidence import EvidenceRead
+from app.schemas.export import CaseExportRead, CaseExportRequest
 from app.schemas.readiness import ReadinessReport
 from app.schemas.timeline import (
     TimelineEventCreate,
@@ -28,6 +31,7 @@ from app.schemas.timeline import (
 )
 from app.services.case_service import CaseService, CaseServiceError
 from app.services.evidence_service import EvidenceService, EvidenceServiceError
+from app.services.export_service import ExportService, ExportServiceError
 from app.services.readiness_service import ReadinessService
 from app.services.timeline_service import TimelineService, TimelineServiceError
 
@@ -43,6 +47,10 @@ def _handle_evidence_error(error: EvidenceServiceError) -> HTTPException:
 
 
 def _handle_timeline_error(error: TimelineServiceError) -> HTTPException:
+    return HTTPException(status_code=error.status_code, detail=error.detail)
+
+
+def _handle_export_error(error: ExportServiceError) -> HTTPException:
     return HTTPException(status_code=error.status_code, detail=error.detail)
 
 
@@ -237,3 +245,40 @@ def create_note(
         )
     except TimelineServiceError as error:
         raise _handle_timeline_error(error)
+
+
+@router.post("/{case_id}/exports", response_model=CaseExportRead, status_code=status.HTTP_201_CREATED)
+def create_export(
+    case_id: int,
+    payload: CaseExportRequest,
+    export_service: ExportService = Depends(get_export_service),
+    workspace_member: WorkspaceMembership = Depends(
+        require_workspace_role(WorkspaceRole.OWNER, WorkspaceRole.OPERATOR)
+    ),
+) -> CaseExportRead:
+    try:
+        return export_service.create_export(
+            workspace_member.workspace_id,
+            case_id,
+            actor_id=workspace_member.user_id,
+            export_format=payload.export_format,
+        )
+    except ExportServiceError as error:
+        raise _handle_export_error(error)
+
+
+@router.get("/{case_id}/exports/{export_id}/download")
+def download_export(
+    case_id: int,
+    export_id: int,
+    export_service: ExportService = Depends(get_export_service),
+    workspace_member: WorkspaceMembership = Depends(get_current_workspace_member),
+) -> FileResponse:
+    try:
+        case_export = export_service.get_export(
+            workspace_member.workspace_id, case_id, export_id
+        )
+    except ExportServiceError as error:
+        raise _handle_export_error(error)
+    path = export_service.path_for_export(case_export.storage_key)
+    return FileResponse(path, media_type="application/zip", filename=Path(case_export.storage_key).name)
