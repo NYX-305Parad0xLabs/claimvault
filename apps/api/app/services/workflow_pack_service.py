@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Iterable
+from typing import Callable
 
 from app.models.claim import Case, ClaimType
 from app.schemas.readiness import ReadinessReport
-from app.workflow.packs import WorkflowPack, WorkflowTaskDefinition, get_pack
+from app.workflow.packs import WorkflowPack, get_pack
 
 
 @dataclass(frozen=True)

@@ -1,4 +1,4 @@
-"""add counterparty profile metadata"""
+"""add counterparty profile metadata
 
 Revision ID: f7a8b9c0d1e2
 Revises: e4a5b6c7d8e9

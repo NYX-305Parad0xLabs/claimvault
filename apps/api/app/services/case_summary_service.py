@@ -48,7 +48,7 @@ class CaseSummaryService:
             timeline = (
                 session.exec(
                     select(TimelineEvent)
-                    .where(TimelineEvent.case_id == case_id)
+                    .where(TimelineEvent.case_id == case_id, TimelineEvent.event_type != "case_exported")
                     .order_by(TimelineEvent.happened_at, TimelineEvent.id)
                 )
                 .all()

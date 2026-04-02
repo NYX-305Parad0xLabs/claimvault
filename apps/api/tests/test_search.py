@@ -98,7 +98,7 @@ async def test_search_case_filter(async_client):
 @pytest.mark.asyncio
 async def test_search_is_workspace_scoped(async_client):
     headers_a = await _auth_headers(async_client)
-    case = await _create_case(async_client, headers_a, title="Scoped case", summary="workspace alpha")
+    await _create_case(async_client, headers_a, title="Scoped case", summary="workspace alpha")
 
     headers_b = await _auth_headers(async_client)
     search = await async_client.get("/api/search", params={"query": "workspace"}, headers=headers_b)
