@@ -192,7 +192,12 @@ class DefaultVaultPackager(VaultPackager):
 
 
 class LiquefyPackager(VaultPackager):
-    """Placeholder for the future Liquefy-driven packager."""
+    """
+    Placeholder for the future Liquefy-driven packager.
+
+    Future responsibilities include verified packing, vault search, policy/redaction, proof-artifact
+    generation, and safe restore of exported bundles.
+    """
 
     name = "liquefy"
 

@@ -20,8 +20,8 @@ ClaimVault advances through measured phases so the product stays trustworthy whi
 - Frontend download flows, audit tab, and export visibility to let operators leave the platform with verifiable proof.
 
 ## Phase 3 â€“ Liquefy, automation, and trust services
-- VaultPackager seam drives Liquefy integration for verified packing, search, proof artifacts, policy/redaction, and safe restore.
-- Liquefy adapter implements the LiquefyPackager stub without touching the public API contract.
+- VaultPackager keeps the export surface swap-able via `VAULT_PACKAGER`, letting Liquefy take over verified packing, vault search, policy/redaction, proof artifact generation, and safe restore without changing the public API.
+- Liquefy adapter implements the `LiquefyPackager` stub, emits clean warnings/extensibility hooks, and defers to the external repo until the integration ships.
 - Automation hooks replay audits, readiness rules, and exports so the platform can coordinate with Liquefy's agents.
 
 For each phase, update docs/ARCHITECTURE.md and docs/SECURITY_MODEL.md so reviewers understand how data flows and what risks are mitigated. Branch protection (see docs/GOVERNANCE.md) keeps these releases safe.

@@ -18,9 +18,18 @@ ClaimVault is a verified evidence and dispute operating system that keeps every 
 - Future automation (NULLA) can hook into the readiness results to nudge operators toward compliance.
 
 ## Proof bundle export
-- ExportService builds deterministic bundles containing summary.md, case.json, 	imeline.json, evidence_manifest.json, checksums.txt, and the evidence files.
-- VaultPackager abstracts packaging; the default implementation zips the case while a Liquefy implementation can be swapped via VAULT_PACKAGER when ready.
+- ExportService builds deterministic bundles containing summary.md, case.json, timeline.json, evidence_manifest.json, checksums.txt, and the evidence files.
+- `VaultPackager` abstracts packaging behind the `VAULT_PACKAGER` environment flag so the default zipper can be replaced by a Liquefy adapter in production without affecting the rest of the API.
 - Bundles record metadata (hashes, actor, timestamps) so auditors can verify integrity without rerunning the case.
+
+### Liquefy integration seam
+
+- The `VaultPackager` surface keeps export logic deterministic while Liquefy prepares the same bundle through a separate adapter. The current stub warns when run and raises `NotImplementedError` until the external repo ships.
+- Verified packing: Liquefy will confirm byte-for-byte fidelity, sign manifests, and publish tamper-indicative metadata so downstream parties can trust a bundle without rerunning ClaimVault.
+- Vault search: Liquefy will index every case, evidence item, and timeline event so auditors can query proofs without stressing the FastAPI service.
+- Policy and redaction: Liquefy enforces retention/redaction policies before shipping an export so sensitive evidence is protected in compliance-controlled workflows.
+- Proof artifact generation: Liquefy will extend the manifest with DNA anchors, hash chains, and proof metadata ready for reuse wherever proof-of-reserve or automated claims are required.
+- Safe restore: Liquefy is expected to offer a rehydration path, allowing exported bundles to be replayed into ClaimVault when rebuilding or migrating a workspace.
 
 ## Audit spine
 - Every meaningful action (status transition, evidence upload, timeline note, export, register/login) writes an AuditEvent with actor, entity type, entity id, action, happened_at, and metadata.
