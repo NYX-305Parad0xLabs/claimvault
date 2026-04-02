@@ -22,18 +22,23 @@ class CaseAssistantService(ABC):
 
     @abstractmethod
     def suggest_missing_evidence(self, workspace_id: int, case_id: int) -> Iterable[EvidenceSuggestion]:
-        """Return evidence types NULLA suggests collecting."""
+        """Return evidence types the assistant would suggest collecting."""
 
     @abstractmethod
-    def summarize_timeline_draft(self, workspace_id: int, case_id: int) -> str:
-        """Generate a draft summary of the case timeline."""
+    def summarize_case_narrative(self, workspace_id: int, case_id: int) -> str:
+        """Generate a deterministic narrative summary for the case."""
 
     @abstractmethod
     def propose_next_steps(self, workspace_id: int, case_id: int) -> Iterable[NextStep]:
         """Propose deterministic next steps for workflow triage."""
 
     @abstractmethod
-    def classify_evidence_source(self, workspace_id: int, case_id: int, evidence_id: int) -> str:
+    def classify_evidence_candidate(
+        self,
+        workspace_id: int,
+        case_id: int,
+        evidence_id: int,
+    ) -> str:
         """Return a classification label for the provided evidence item."""
 
 
@@ -43,11 +48,37 @@ class NoopCaseAssistantService(CaseAssistantService):
     def suggest_missing_evidence(self, workspace_id: int, case_id: int) -> Iterable[EvidenceSuggestion]:
         return ()
 
-    def summarize_timeline_draft(self, workspace_id: int, case_id: int) -> str:
+    def summarize_case_narrative(self, workspace_id: int, case_id: int) -> str:
         return ""
 
     def propose_next_steps(self, workspace_id: int, case_id: int) -> Iterable[NextStep]:
         return ()
 
-    def classify_evidence_source(self, workspace_id: int, case_id: int, evidence_id: int) -> str:
+    def classify_evidence_candidate(
+        self,
+        workspace_id: int,
+        case_id: int,
+        evidence_id: int,
+    ) -> str:
         return "unclassified"
+
+
+class NullaCaseAssistantService(CaseAssistantService):
+    """Placeholder for the NULLA assistant integration."""
+
+    def suggest_missing_evidence(self, workspace_id: int, case_id: int) -> Iterable[EvidenceSuggestion]:
+        raise NotImplementedError("NULLA assistant is not wired yet")
+
+    def summarize_case_narrative(self, workspace_id: int, case_id: int) -> str:
+        raise NotImplementedError("NULLA assistant is not wired yet")
+
+    def propose_next_steps(self, workspace_id: int, case_id: int) -> Iterable[NextStep]:
+        raise NotImplementedError("NULLA assistant is not wired yet")
+
+    def classify_evidence_candidate(
+        self,
+        workspace_id: int,
+        case_id: int,
+        evidence_id: int,
+    ) -> str:
+        raise NotImplementedError("NULLA assistant is not wired yet")

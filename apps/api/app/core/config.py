@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     )
     export_root: Path = Field(default_factory=default_export_root)
     vault_packager: str = "default"
+    assistant_provider: str = "noop"
 
 
 settings = Settings()

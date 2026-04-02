@@ -30,7 +30,11 @@ from app.services import (
     TimelineService,
     WorkflowPackService,
 )
-from app.services.case_assistant_service import NoopCaseAssistantService
+from app.services.case_assistant_service import (
+    CaseAssistantService,
+    NullaCaseAssistantService,
+    NoopCaseAssistantService,
+)
 from app.services.packager import DefaultVaultPackager, LiquefyPackager, VaultPackager
 from app.services.summary_builder import CaseSummaryBuilder
 from app.storage import LocalEvidenceStorage, LocalExportStorage
@@ -72,6 +76,13 @@ def create_app() -> FastAPI:
         packager = LiquefyPackager(logger)
     else:
         packager = DefaultVaultPackager(evidence_storage, logger)
+    assistant_candidates: dict[str, CaseAssistantService] = {
+        "nulla": NullaCaseAssistantService(),
+        "noop": NoopCaseAssistantService(),
+    }
+    assistant_service = assistant_candidates.get(
+        settings.assistant_provider.lower(), NoopCaseAssistantService()
+    )
     lifecycle_service = CaseLifecycleService(logger)
     services = Services(
         audit_service=AuditService(session_factory, logger),
@@ -89,7 +100,7 @@ def create_app() -> FastAPI:
         readiness_service=readiness_service,
         summary_service=summary_service,
         workflow_pack_service=workflow_pack_service,
-        assistant_service=NoopCaseAssistantService(),
+        assistant_service=assistant_service,
         lifecycle_service=lifecycle_service,
         counterparty_service=CounterpartyService(session_factory),
         search_service=search_service,
