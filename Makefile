@@ -22,6 +22,15 @@ run-backend: api-dev
 dev-web:
 	$(PNPM) --filter claimvault-web dev
 
+web-dev:
+	cd $(WEB_DIR) && $(PNPM) dev
+
+web-lint:
+	cd $(WEB_DIR) && $(PNPM) lint
+
+web-typecheck:
+	cd $(WEB_DIR) && $(PNPM) typecheck
+
 lint-backend: api-lint
 
 lint-web:
