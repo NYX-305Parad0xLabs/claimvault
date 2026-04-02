@@ -1,4 +1,4 @@
-# ClaimVault
+ï»¿# ClaimVault
 
 ClaimVault is the case-building and export engine Parad0x Labs uses to turn returns, disputes, chargebacks, and warranty investigations into auditable proof bundles. The platform combines a typed FastAPI backend, a responsive Next.js UI, and shared contract definitions so every mutation stays observable, validated, and traceable.
 
@@ -22,7 +22,7 @@ ClaimVault is the case-building and export engine Parad0x Labs uses to turn retu
 | Tooling | Makefile, scripts/bootstrap, scripts/check_imports, GitHub Actions CI |
 
 ## Quickstart
-1. Clone the repo and jump into it: git clone git@github.com:<you>/claimvault.git && cd claimvault.
+1. Clone the repo and drop into it: git clone git@github.com:<you>/claimvault.git && cd claimvault.
 2. Copy the shared configuration samples and adjust secrets:
    - cp .env.example .env
    - cp apps/api/.env.example apps/api/.env
@@ -34,12 +34,25 @@ ClaimVault is the case-building and export engine Parad0x Labs uses to turn retu
    - make web-dev
 6. Reference docs/BOOTSTRAP.md for the onboarding checklist, docs/DEV_SETUP.md for OS-specific tips, and docs/GOVERNANCE.md for branch protection requirements.
 
+## ASCII Operational Flow
+`
+User â†’ Next.js UI â†’ FastAPI API â†’ SQLite + evidence/export storage
+        â”‚             â”‚
+        â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+            audit + timeline writes
+`
+No UI screenshots yetâ€”focus stays on the typed API, guardrails, and deterministic exports.
+
+## MVP Boundaries
+- **In scope today:** manual case creation, evidence uploads, timelines, workflow rules, audit spine, readiness scoring, deterministic export bundles, JWT auth, SQLite/local storage, and the tooling/CI described above.
+- **Out of scope today:** live email ingestion, OCR automation, merchant templates, case sharing loops, Liquefy integration, NULLA workflow agent, DNA-anchored exports, S3 storage backend, Parad0x Command desktop companion, and mobile capture flows. Those belong to future phases tracked in docs/ROADMAP.md and the new GitHub issues.
+
 ## Repository Layout
 - pps/api â€“ FastAPI service with routers, models, services, migrations, tests, and runtime guardrails.
 - pps/web â€“ Next.js App Router frontend, typed API client, and the UX for cases, evidence, and audits.
 - packages/contracts â€“ Shared JSON schemas for API payloads, responses, and exports.
-- docs/ â€“ Product, architecture, roadmap, security, bootstrap, and governance guidance.
-- scripts/ â€“ check_imports.py, platform bootstrap helpers, and future automation hooks.
+- docs â€“ Product, architecture, roadmap, security, bootstrap, and governance guidance.
+- scripts â€“ check_imports.py, platform bootstrap helpers, and future automation hooks.
 - Root files â€“ Makefile targets, .env.example, .editorconfig, .gitattributes, and the MIT license.
 
 ## Tooling
@@ -55,7 +68,7 @@ ClaimVault is the case-building and export engine Parad0x Labs uses to turn retu
 - docs/ROADMAP.md â€“ planned milestones from foundation to proof exports and partner integrations.
 - docs/SECURITY_MODEL.md â€“ assumptions, controls, audit spine, and threat lists for evidence/case integrity.
 - docs/BOOTSTRAP.md + docs/DEV_SETUP.md â€“ onboarding and platform-specific dev tips.
-- docs/GOVERNANCE.md â€“ recommended GitHub Actions statuses and branch protection rules.
+- docs/GOVERNANCE.md â€“ mandatory GitHub Actions statuses and branch protection rules.
 
 ## Continuous Integration
 GitHub Actions enforces the following checks on main and pull requests:
