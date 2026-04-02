@@ -1,0 +1,46 @@
+from __future__ import annotations
+
+from datetime import datetime
+from decimal import Decimal
+from typing import Optional
+
+from sqlmodel import SQLModel, Field
+
+from app.models.claim import CaseStatus, ClaimType
+
+
+class CaseCreate(SQLModel):
+    workspace_id: int
+    title: str
+    claim_type: ClaimType
+    counterparty_name: Optional[str] = None
+    merchant_name: Optional[str] = None
+    order_reference: Optional[str] = None
+    amount_currency: str = Field(default="USD")
+    amount_value: Decimal = Field(default=Decimal("0.00"))
+    purchase_date: Optional[datetime] = None
+    incident_date: Optional[datetime] = None
+    due_date: Optional[datetime] = None
+    summary: Optional[str] = None
+
+
+class CaseRead(SQLModel):
+    id: int
+    workspace_id: int
+    title: str
+    claim_type: ClaimType
+    status: CaseStatus
+    counterparty_name: Optional[str]
+    merchant_name: Optional[str]
+    order_reference: Optional[str]
+    amount_currency: str
+    amount_value: Decimal
+    purchase_date: Optional[datetime]
+    incident_date: Optional[datetime]
+    due_date: Optional[datetime]
+    summary: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

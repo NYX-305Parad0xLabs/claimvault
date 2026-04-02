@@ -1,21 +1,31 @@
 from sqlmodel import SQLModel
 
 from .claim import (
+    ActorType,
     AuditEvent,
-    Claim,
-    ClaimStatus,
+    Case,
+    CaseExport,
+    CaseStatus,
     ClaimType,
     EvidenceItem,
+    EvidenceKind,
     TimelineEvent,
+    User,
+    Workspace,
 )
 
 __all__ = [
+    "ActorType",
     "AuditEvent",
-    "Claim",
-    "ClaimStatus",
+    "Case",
+    "CaseExport",
+    "CaseStatus",
     "ClaimType",
     "EvidenceItem",
+    "EvidenceKind",
     "TimelineEvent",
+    "User",
+    "Workspace",
 ]
 
 metadata = SQLModel.metadata

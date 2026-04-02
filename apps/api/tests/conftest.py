@@ -1,3 +1,4 @@
+import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 
@@ -13,10 +14,20 @@ def cli_env(monkeypatch, tmp_path):
     yield
 
 
-@pytest_asyncio.fixture
-async def async_client() -> AsyncClient:
+@pytest.fixture
+def app_instance():
     app = create_app()
     models_metadata.create_all(bind=app.state.engine)
-    transport = ASGITransport(app=app)
+    return app
+
+
+@pytest.fixture
+def session_factory(app_instance):
+    return app_instance.state.session_factory
+
+
+@pytest_asyncio.fixture
+async def async_client(app_instance) -> AsyncClient:
+    transport = ASGITransport(app=app_instance)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         yield client

@@ -1,8 +1,11 @@
 from dataclasses import dataclass
 
-from .claim_service import ClaimService
+from .case_service import CaseService
+
+
+__all__ = ["CaseService", "Services"]
 
 
 @dataclass
 class Services:
-    claim_service: ClaimService
+    case_service: CaseService

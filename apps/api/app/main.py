@@ -9,8 +9,7 @@ from app.core.config import Settings
 from app.core.db import build_engine, build_session_factory
 from app.core.logger import configure_structured_logger
 from app.models import metadata as models_metadata
-from app.services import Services
-from app.services.claim_service import ClaimService
+from app.services import CaseService, Services
 
 
 @asynccontextmanager
@@ -32,7 +31,7 @@ def create_app() -> FastAPI:
     engine = build_engine(settings)
     session_factory = build_session_factory(engine)
 
-    services = Services(claim_service=ClaimService(session_factory, logger))
+    services = Services(case_service=CaseService(session_factory, logger))
 
     app = FastAPI(
         title=settings.app_name,
