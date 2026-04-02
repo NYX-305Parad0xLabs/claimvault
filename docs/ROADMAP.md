@@ -19,10 +19,27 @@ ClaimVault advances through measured phases so the product stays trustworthy whi
 - Audit and timeline surfaces that appends every transition, upload, and export with human-readable metadata.
 - Frontend download flows, audit tab, and export visibility to let operators leave the platform with verifiable proof.
 
-## Phase 3 â€“ Liquefy, automation, and trust services
-- VaultPackager keeps the export surface swap-able via `VAULT_PACKAGER`, letting Liquefy take over verified packing, vault search, policy/redaction, proof artifact generation, and safe restore without changing the public API.
-- Liquefy adapter implements the `LiquefyPackager` stub, emits clean warnings/extensibility hooks, and defers to the external repo until the integration ships.
-- Automation hooks replay audits, readiness rules, and exports so the platform can coordinate with Liquefy's agents.
+- ## Phase 3 â€“ Liquefy, automation, and trust services
+- - VaultPackager keeps the export surface swap-able via `VAULT_PACKAGER`, letting Liquefy take over verified packing, vault search, policy/redaction, proof artifact generation, and safe restore without changing the public API.
+- - Liquefy adapter implements the `LiquefyPackager` stub, emits clean warnings/extensibility hooks, and defers to the external repo until the integration ships.
+- - Automation hooks replay audits, readiness rules, and exports so the platform can coordinate with Liquefy's agents.
+
+- ## Public roadmap issues
+- - #11: Extract text from receipts, PDFs, and screenshots.
+- - #12: Ingest email streams into cases.
+- - #13: Deliver merchant-specific proof templates.
+- - #14: Launch rental deposit dispute workflow pack.
+- - #15: Productize warranty claim workflow pack.
+- - #16: Ship a chargeback-prep workflow pack.
+- - #17: Ship a shipment-damage workflow pack.
+- - #18: Integrate Liquefy production packager.
+- - #19: Embed NULLA-guided missing-proof tasks.
+- - #20: Offer DNA-anchored paid exports.
+- - #21: Add S3-compatible evidence/export storage.
+- - #22: Add secure case-sharing handoff.
+- - #23: Ship Parad0x Command desktop companion.
+- - #24: Build mobile evidence capture.
+- - #25: Search across evidence text and timeline.
 - NULLA assistant seam registers `CaseAssistantService` with placeholder methods so future automation can suggest evidence, summarize timelines, propose next steps, and classify evidence without altering the deterministic rule engine.
 
 For each phase, update docs/ARCHITECTURE.md and docs/SECURITY_MODEL.md so reviewers understand how data flows and what risks are mitigated. Branch protection (see docs/GOVERNANCE.md) keeps these releases safe.
