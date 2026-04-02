@@ -23,5 +23,6 @@ ClaimVault advances through measured phases so the product stays trustworthy whi
 - VaultPackager keeps the export surface swap-able via `VAULT_PACKAGER`, letting Liquefy take over verified packing, vault search, policy/redaction, proof artifact generation, and safe restore without changing the public API.
 - Liquefy adapter implements the `LiquefyPackager` stub, emits clean warnings/extensibility hooks, and defers to the external repo until the integration ships.
 - Automation hooks replay audits, readiness rules, and exports so the platform can coordinate with Liquefy's agents.
+- NULLA assistant seam registers `CaseAssistantService` with placeholder methods so future automation can suggest evidence, summarize timelines, propose next steps, and classify evidence without altering the deterministic rule engine.
 
 For each phase, update docs/ARCHITECTURE.md and docs/SECURITY_MODEL.md so reviewers understand how data flows and what risks are mitigated. Branch protection (see docs/GOVERNANCE.md) keeps these releases safe.

@@ -20,6 +20,7 @@ from app.services import (
     Services,
     TimelineService,
 )
+from app.services.case_assistant_service import NoopCaseAssistantService
 from app.services.packager import DefaultVaultPackager, LiquefyPackager, VaultPackager
 from app.services.summary_builder import CaseSummaryBuilder
 from app.storage import LocalEvidenceStorage, LocalExportStorage
@@ -61,6 +62,7 @@ def create_app() -> FastAPI:
         summary_service=CaseSummaryService(session_factory, summary_builder),
         timeline_service=TimelineService(session_factory, logger),
         readiness_service=ReadinessService(session_factory, logger),
+        assistant_service=NoopCaseAssistantService(),
     )
 
     app = FastAPI(

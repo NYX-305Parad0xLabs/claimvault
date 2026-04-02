@@ -17,6 +17,12 @@ ClaimVault is a verified evidence and dispute operating system that keeps every 
 - Rules run on every relevant detail fetch and after evidence uploads or timeline updates so the score reflects the latest state.
 - Future automation (NULLA) can hook into the readiness results to nudge operators toward compliance.
 
+### NULLA assistant seam
+
+- `CaseAssistantService` captures the NULLA integration point without shipping any AI. The default `NoopCaseAssistantService` does nothing while keeping the dependency graph ready.
+- When NULLA ships, its adapter will provide `suggest_missing_evidence`, `summarize_timeline_draft`, `propose_next_steps`, and `classify_evidence_source` helpers tied to readiness output and timeline history.
+- This seam ensures the deterministic rule engine remains primary while allowing external assistants to layer guidance on top in future releases.
+
 ## Proof bundle export
 - ExportService builds deterministic bundles containing summary.md, case.json, timeline.json, evidence_manifest.json, checksums.txt, and the evidence files.
 - `VaultPackager` abstracts packaging behind the `VAULT_PACKAGER` environment flag so the default zipper can be replaced by a Liquefy adapter in production without affecting the rest of the API.

@@ -8,6 +8,7 @@ from .evidence_service import EvidenceService
 from .export_service import ExportService
 from .readiness_service import ReadinessService
 from .timeline_service import TimelineService
+from .case_assistant_service import CaseAssistantService
 
 
 __all__ = [
@@ -32,3 +33,4 @@ class Services:
     timeline_service: TimelineService
     readiness_service: ReadinessService
     summary_service: CaseSummaryService
+    assistant_service: CaseAssistantService
