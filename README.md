@@ -32,11 +32,7 @@ NULLA: workflow assistant that can trigger notes, readiness reminders, or eviden
 DNA anchoring: paid exports will embed cryptographic anchors and metadata in the manifest so downstream verifiers can trust the package.
 
 ## Quickstart
-1. Clone the repo and drop into it: git clone git@github.com:NYX-305Parad0xLabs/claimvault.git && cd claimvault.
-2. Copy configuration samples: cp .env.example .env, cp apps/api/.env.example apps/api/.env, cp apps/web/.env.example apps/web/.env.
-3. Install dependencies: make install (or scripts/bootstrap.sh / scripts/bootstrap.ps1).
-4. Run make ci to exercise Ruff, pytest, migrations, frontend lint/typecheck, and the import guard.
-5. Start the services with make api-dev and make web-dev.
+See [docs/QUICKSTART.md](docs/QUICKSTART.md) for the exact onboarding steps, from copying the `.env.example` templates (see [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) for the meaning of each variable) to bootstrapping dependencies on Windows/macOS/Linux, running `make ci`, and streaming `make api-dev` + `make web-dev`.
 
 ## Supporting docs
 - docs/POSITIONING.md – product message, buyer cues, and outcomes.
@@ -47,3 +43,4 @@ DNA anchoring: paid exports will embed cryptographic anchors and metadata in the
 - docs/ARCHITECTURE.md – deeper technical context and future-proof details.
 - docs/MVP_CHECKLIST.md – release-ready checklist of what is finished and what is tracked for later.
 - docs/SECURITY_MODEL.md / docs/GOVERNANCE.md – authentication/audit controls and required CI sweeps.
+- docs/ENVIRONMENT.md – sample variable definitions for the root API/web `.env` files.

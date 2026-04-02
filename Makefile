@@ -8,6 +8,18 @@ install:
 	$(PY) -m pip install -e "$(API_DIR)[dev]"
 	$(PNPM) install
 
+import-check:
+	$(PY) scripts/check_imports.py
+
+ci:
+	$(MAKE) import-check
+	$(MAKE) api-lint
+	$(MAKE) api-test
+	cd $(API_DIR) && alembic upgrade head
+	cd $(WEB_DIR) && $(PNPM) install --frozen-lockfile
+	$(MAKE) web-lint
+	$(MAKE) web-typecheck
+
 api-dev:
 	$(PY) -m uvicorn --factory apps.api.app.main:create_app --reload --host 0.0.0.0 --port 8000
 
