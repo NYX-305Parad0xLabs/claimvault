@@ -4,7 +4,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.v1 import auth_router, cases_router, health_router
+from app.api.v1 import (
+    auth_router,
+    cases_router,
+    counterparties_router,
+    health_router,
+)
 from app.core.config import Settings
 from app.core.db import build_engine, build_session_factory
 from app.core.logger import configure_structured_logger
@@ -15,6 +20,7 @@ from app.services import (
     CaseLifecycleService,
     CaseService,
     CaseSummaryService,
+    CounterpartyService,
     EvidenceService,
     ExportService,
     ReadinessService,
@@ -64,6 +70,7 @@ def create_app() -> FastAPI:
         summary_service=CaseSummaryService(session_factory, summary_builder),
         timeline_service=TimelineService(session_factory, logger),
         readiness_service=ReadinessService(session_factory, logger),
+        counterparty_service=CounterpartyService(session_factory),
         assistant_service=NoopCaseAssistantService(),
         lifecycle_service=lifecycle_service,
     )
@@ -85,5 +92,6 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(auth_router, prefix="/api")
     app.include_router(cases_router, prefix="/api")
+    app.include_router(counterparties_router, prefix="/api")
 
     return app

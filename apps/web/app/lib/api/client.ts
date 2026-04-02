@@ -94,6 +94,31 @@ export type CounterpartyProfile = {
   created_at: string;
 };
 
+export type CounterpartyProfileType =
+  | "merchant"
+  | "carrier"
+  | "landlord"
+  | "manufacturer"
+  | "marketplace";
+
+export type CounterpartyProfileCreateRequest = {
+  name: string;
+  profile_type: CounterpartyProfileType;
+  website?: string | null;
+  support_email?: string | null;
+  support_url?: string | null;
+  notes?: string | null;
+};
+
+export type CounterpartyProfileUpdateRequest = {
+  name?: string;
+  profile_type?: CounterpartyProfileType;
+  website?: string | null;
+  support_email?: string | null;
+  support_url?: string | null;
+  notes?: string | null;
+};
+
 export type CaseDetail = CaseSummary & {
   counterparty_profile?: CounterpartyProfile | null;
   order_reference?: string | null;
@@ -282,6 +307,27 @@ export function fetchCases(filters?: CaseFilter) {
 export function createCase(payload: CaseCreateRequest) {
   return request<CaseDetail>("/cases", {
     method: "POST",
+    body: payload,
+  });
+}
+
+export function fetchCounterpartyProfiles() {
+  return request<CounterpartyProfile[]>("/counterparties");
+}
+
+export function createCounterpartyProfile(payload: CounterpartyProfileCreateRequest) {
+  return request<CounterpartyProfile>("/counterparties", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export function updateCounterpartyProfile(
+  profileId: number,
+  payload: CounterpartyProfileUpdateRequest
+) {
+  return request<CounterpartyProfile>(`/counterparties/${profileId}`, {
+    method: "PATCH",
     body: payload,
   });
 }

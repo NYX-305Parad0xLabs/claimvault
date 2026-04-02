@@ -10,6 +10,7 @@ from .export_service import ExportService
 from .readiness_service import ReadinessService
 from .timeline_service import TimelineService
 from .case_assistant_service import CaseAssistantService
+from .counterparty_service import CounterpartyService
 
 
 __all__ = [
@@ -21,6 +22,7 @@ __all__ = [
     "EvidenceService",
     "ExportService",
     "TimelineService",
+    "CounterpartyService",
     "Services",
 ]
 
@@ -37,3 +39,4 @@ class Services:
     summary_service: CaseSummaryService
     assistant_service: CaseAssistantService
     lifecycle_service: CaseLifecycleService
+    counterparty_service: CounterpartyService

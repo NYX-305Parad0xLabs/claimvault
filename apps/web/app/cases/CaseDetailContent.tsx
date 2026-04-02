@@ -17,17 +17,20 @@ import {
   AuditEvent,
   CaseDetail,
   CaseTransitionRequest,
+  CaseUpdateRequest,
+  CounterpartyProfile,
+  CounterpartyProfileCreateRequest,
+  CounterpartyProfileType,
   EvidenceItem,
   EvidenceKind,
   ExtractionStatus,
   MAX_EVIDENCE_SIZE_BYTES,
   DISALLOWED_EVIDENCE_MIMES,
   evidenceKindOptions,
-  updateEvidenceExtraction,
-  createTimelineNote,
-  downloadEvidence,
+  createCounterpartyProfile,
   fetchAuditEvents,
   fetchCase,
+  fetchCounterpartyProfiles,
   fetchReadiness,
   fetchTimeline,
   listEvidence,
@@ -191,6 +194,19 @@ const counterpartyTypeLabels: Record<string, string> = {
   marketplace: "Marketplace",
 };
 
+const counterpartyProfileTypeOptions = Object.entries(counterpartyTypeLabels).map(
+  ([value, label]) => ({ value: value as CounterpartyProfileType, label })
+);
+
+const initialCounterpartyForm: CounterpartyProfileCreateRequest = {
+  name: "",
+  profile_type: "merchant",
+  website: "",
+  support_email: "",
+  support_url: "",
+  notes: "",
+};
+
 const formatCounterpartyType = (type?: string) =>
   type ? counterpartyTypeLabels[type] ?? type.replace(/_/g, " ") : "Manual entry";
 
@@ -231,6 +247,19 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
   const [selectedKind, setSelectedKind] = useState<EvidenceKind>("receipt");
   const [dragActive, setDragActive] = useState(false);
   const [downloadingEvidenceId, setDownloadingEvidenceId] = useState<number | null>(null);
+  const [profiles, setProfiles] = useState<CounterpartyProfile[]>([]);
+  const [profilesLoading, setProfilesLoading] = useState(true);
+  const [profilesError, setProfilesError] = useState<string | null>(null);
+  const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);
+  const [counterpartyUpdating, setCounterpartyUpdating] = useState(false);
+  const [counterpartyUpdateError, setCounterpartyUpdateError] = useState<string | null>(null);
+  const [counterpartyMessage, setCounterpartyMessage] = useState<string | null>(null);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [profileForm, setProfileForm] = useState<CounterpartyProfileCreateRequest>(
+    initialCounterpartyForm
+  );
+  const [profileFormError, setProfileFormError] = useState<string | null>(null);
+  const [profileSubmitting, setProfileSubmitting] = useState(false);
   const [editingExtractionId, setEditingExtractionId] = useState<number | null>(null);
   const [extractionDraft, setExtractionDraft] = useState("");
   const [extractionStatusDraft, setExtractionStatusDraft] =
@@ -284,6 +313,93 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
     }
   }, [caseId]);
 
+  const refreshProfiles = useCallback(async () => {
+    setProfilesLoading(true);
+    setProfilesError(null);
+    try {
+      const list = await fetchCounterpartyProfiles();
+      setProfiles(list);
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Unable to load counterparty profiles";
+      setProfilesError(message);
+    } finally {
+      setProfilesLoading(false);
+    }
+  }, []);
+
+  const assignCounterparty = useCallback(
+    async (profileId: number | null, profileName?: string) => {
+      setCounterpartyUpdating(true);
+      setCounterpartyUpdateError(null);
+      setCounterpartyMessage(null);
+      try {
+        const payload: CaseUpdateRequest = {
+          counterparty_profile_id: profileId ?? null,
+        };
+        if (profileId && profileName) {
+          payload.counterparty_name = profileName;
+        }
+        const updated = await updateCase(caseId, payload);
+        setCaseDetail(updated);
+        setSelectedProfileId(updated.counterparty_profile_id ?? null);
+        setCounterpartyMessage(
+          profileId
+            ? `${profileName ?? "Profile"} applied to this case.`
+            : "Counterparty profile cleared; continue with manual entry."
+        );
+      } catch (err) {
+        const message =
+          err instanceof ApiError ? err.message : "Unable to assign counterparty profile";
+        setCounterpartyUpdateError(message);
+      } finally {
+        setCounterpartyUpdating(false);
+      }
+    },
+    [caseId]
+  );
+
+  const handleProfileSelect = (event: ChangeEvent<HTMLSelectElement>) => {
+    const raw = event.target.value;
+    const profileId = raw ? Number(raw) : null;
+    const profile = profiles.find((entry) => entry.id === profileId);
+    assignCounterparty(profileId, profile?.name);
+  };
+
+  const resetProfileForm = () => {
+    setProfileForm({ ...initialCounterpartyForm });
+    setProfileFormError(null);
+  };
+
+  const handleCreateProfile = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setProfileSubmitting(true);
+    setProfileFormError(null);
+    try {
+      if (!profileForm.name.trim()) {
+        throw new Error("Name is required");
+      }
+      const payload: CounterpartyProfileCreateRequest = {
+        name: profileForm.name.trim(),
+        profile_type: profileForm.profile_type,
+        website: profileForm.website.trim() || null,
+        support_email: profileForm.support_email.trim() || null,
+        support_url: profileForm.support_url.trim() || null,
+        notes: profileForm.notes.trim() || null,
+      };
+      const created = await createCounterpartyProfile(payload);
+      setProfiles((prev) => [created, ...prev]);
+      resetProfileForm();
+      setProfileModalOpen(false);
+      await assignCounterparty(created.id, created.name);
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Unable to create counterparty profile";
+      setProfileFormError(message);
+    } finally {
+      setProfileSubmitting(false);
+    }
+  };
+
   const refreshAudit = useCallback(async () => {
     setAuditLoading(true);
     setAuditError(null);
@@ -330,16 +446,21 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
       setEvidenceList(evidence);
       await refreshAudit();
       await refreshTemplatePreview();
+      await refreshProfiles();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to load case data");
     } finally {
       setLoading(false);
     }
-  }, [caseId, refreshAudit, refreshTemplatePreview]);
+  }, [caseId, refreshAudit, refreshTemplatePreview, refreshProfiles]);
 
   useEffect(() => {
     loadCaseData();
   }, [loadCaseData]);
+
+  useEffect(() => {
+    setSelectedProfileId(caseDetail?.counterparty_profile_id ?? null);
+  }, [caseDetail?.counterparty_profile_id]);
 
   const handleSaveSummary = async () => {
     setSummarySaving(true);
@@ -544,7 +665,124 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
   const availableTransitions = workflowTransitions[caseDetail.status] ?? [];
 
   return (
-    <section className="space-y-6">
+    <>
+      {profileModalOpen && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
+          <form
+            className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6 shadow-lg shadow-slate-900/20"
+            onSubmit={handleCreateProfile}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">New counterparty profile</h2>
+              <button
+                type="button"
+                className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500"
+                onClick={() => {
+                  setProfileModalOpen(false);
+                  resetProfileForm();
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <label className="block text-sm font-medium text-slate-600">
+              Name
+              <input
+                value={profileForm.name}
+                onChange={(event) => setProfileForm((prev) => ({ ...prev, name: event.target.value }))}
+                className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-slate-900"
+                placeholder="Merchant or landlord name"
+                required
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-600">
+              Type
+              <select
+                value={profileForm.profile_type}
+                onChange={(event) =>
+                  setProfileForm((prev) => ({ ...prev, profile_type: event.target.value as CounterpartyProfileType }))
+                }
+                className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-slate-900"
+              >
+                {counterpartyProfileTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="block text-sm font-medium text-slate-600">
+                Website
+                <input
+                  value={profileForm.website}
+                  onChange={(event) =>
+                    setProfileForm((prev) => ({ ...prev, website: event.target.value }))
+                  }
+                  className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-slate-900"
+                  placeholder="https://"
+                />
+              </label>
+              <label className="block text-sm font-medium text-slate-600">
+                Support email
+                <input
+                  value={profileForm.support_email}
+                  onChange={(event) =>
+                    setProfileForm((prev) => ({ ...prev, support_email: event.target.value }))
+                  }
+                  className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-slate-900"
+                  placeholder="ops@example.com"
+                />
+              </label>
+            </div>
+            <label className="block text-sm font-medium text-slate-600">
+              Support URL
+              <input
+                value={profileForm.support_url}
+                onChange={(event) =>
+                  setProfileForm((prev) => ({ ...prev, support_url: event.target.value }))
+                }
+                className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-slate-900"
+                placeholder="https://support..."
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-600">
+              Notes
+              <textarea
+                value={profileForm.notes}
+                onChange={(event) =>
+                  setProfileForm((prev) => ({ ...prev, notes: event.target.value }))
+                }
+                rows={3}
+                className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-900"
+                placeholder="Optional context to reuse in exports or readiness rules."
+              />
+            </label>
+            {profileFormError && <StatusMessage variant="error">{profileFormError}</StatusMessage>}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-2xl border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 transition hover:border-slate-900"
+                onClick={() => {
+                  setProfileModalOpen(false);
+                  resetProfileForm();
+                }}
+                disabled={profileSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={profileSubmitting}
+                className="rounded-2xl bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-slate-800 disabled:opacity-60"
+              >
+                {profileSubmitting ? "Saving..." : "Create profile"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      <section className="space-y-6">
       <header className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
         <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-500">
           {statusLabels[caseDetail.status] ?? caseDetail.status.replace(/_/g, " ")}
@@ -620,6 +858,42 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
         <p className="mt-4 text-sm text-slate-600">
           {counterpartyProfile?.notes ?? "No additional counterparty details recorded."}
         </p>
+        <div className="mt-4 space-y-2">
+          <label className="text-[11px] uppercase tracking-[0.4em] text-slate-400">
+            Counterparty profiles
+            <span className="ml-2 text-[10px] font-semibold text-slate-500">
+              {profilesLoading ? "Refreshing workspace data..." : "Workspace scoped"}
+            </span>
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={selectedProfileId ?? ""}
+              onChange={handleProfileSelect}
+              disabled={profilesLoading || counterpartyUpdating}
+              className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-slate-900"
+            >
+              <option value="">Manual entry (no profile)</option>
+              {profiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.name} ({formatCounterpartyType(profile.profile_type)})
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-600 transition hover:border-slate-900 disabled:opacity-50"
+              onClick={() => setProfileModalOpen(true)}
+              disabled={counterpartyUpdating}
+            >
+              Add profile
+            </button>
+          </div>
+          {profilesError && <StatusMessage variant="error">{profilesError}</StatusMessage>}
+          {counterpartyUpdateError && <StatusMessage variant="error">{counterpartyUpdateError}</StatusMessage>}
+          {counterpartyMessage && (
+            <div className="text-xs italic text-slate-600">{counterpartyMessage}</div>
+          )}
+        </div>
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1.45fr,0.85fr]">
@@ -1075,5 +1349,6 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
         </div>
       </div>
     </section>
+    </>
   );
 }

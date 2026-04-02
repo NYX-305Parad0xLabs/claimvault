@@ -11,6 +11,7 @@ from app.services import (
     AuditService,
     AuthService,
     CaseService,
+    CounterpartyService,
     EvidenceService,
     ExportService,
     ReadinessService,
@@ -55,6 +56,10 @@ def get_readiness_service(services: Services = Depends(get_services)) -> Readine
 
 def get_export_service(services: Services = Depends(get_services)) -> ExportService:
     return services.export_service
+
+
+def get_counterparty_service(services: Services = Depends(get_services)) -> CounterpartyService:
+    return services.counterparty_service
 
 
 def get_summary_service(services: Services = Depends(get_services)) -> CaseSummaryService:
