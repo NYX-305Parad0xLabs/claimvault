@@ -43,3 +43,20 @@ class CaseRead(SQLModel):
 
     class Config:
         from_attributes = True
+
+
+class CaseUpdate(SQLModel):
+    title: Optional[str] = None
+    counterparty_name: Optional[str] = None
+    merchant_name: Optional[str] = None
+    order_reference: Optional[str] = None
+    amount_currency: Optional[str] = None
+    amount_value: Optional[Decimal] = None
+    purchase_date: Optional[datetime] = None
+    incident_date: Optional[datetime] = None
+    due_date: Optional[datetime] = None
+    summary: Optional[str] = None
+
+
+class CaseTransitionRequest(SQLModel):
+    target_status: CaseStatus
