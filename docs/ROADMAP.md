@@ -17,3 +17,6 @@
 - Expand exports into **compliance-ready packages** for partners (signed JSON, PDF, + manifest).
 - Prepare the system for **secure onboarding** by adding RBAC layers and safer encryption for evidence-at-rest.
 
+
+- Formalize the Liquefy vault seam by driving verified packing, searchable vault bundles, proof artifact streaming, and policy/redaction-aware exports through the new VaultPackager interface before the partner repo is onboarded.
+- Layer in Liquefy safe-restore helpers and policy audits via the same seam once the integration surfaces APIs.
