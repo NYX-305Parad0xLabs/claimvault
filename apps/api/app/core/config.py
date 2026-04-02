@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import secrets
 
+from pathlib import Path
+
 from pydantic import ConfigDict, Field
 from pydantic_settings import BaseSettings
 
@@ -11,6 +13,10 @@ from app.core.paths import app_data_dir
 def default_database_url() -> str:
     storage = app_data_dir("claimvault")
     return f"sqlite:///{storage / 'claimvault.db'}"
+
+
+def default_evidence_root() -> Path:
+    return app_data_dir("claimvault") / "evidence"
 
 
 class Settings(BaseSettings):
@@ -26,3 +32,5 @@ class Settings(BaseSettings):
     secret_key: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     access_token_expire_minutes: int = 60
     token_algorithm: str = "HS256"
+    evidence_root: Path = Field(default_factory=default_evidence_root)
+    max_evidence_size_bytes: int = 10 * 1024 * 1024

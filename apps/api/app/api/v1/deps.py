@@ -7,7 +7,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session
 
 from app.models import User, WorkspaceMembership, WorkspaceRole
-from app.services import AuthService, CaseService, Services
+from app.services import AuthService, CaseService, EvidenceService, Services
 from app.services.auth_service import AuthError
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -29,6 +29,10 @@ def get_case_service(services: Services = Depends(get_services)) -> CaseService:
 
 def get_auth_service(services: Services = Depends(get_services)) -> AuthService:
     return services.auth_service
+
+
+def get_evidence_service(services: Services = Depends(get_services)) -> EvidenceService:
+    return services.evidence_service
 
 
 def _unauthorized(detail: str = "Unauthorized") -> HTTPException:

@@ -9,7 +9,8 @@ from app.core.config import Settings
 from app.core.db import build_engine, build_session_factory
 from app.core.logger import configure_structured_logger
 from app.models import metadata as models_metadata
-from app.services import AuthService, CaseService, Services
+from app.services import AuthService, CaseService, EvidenceService, Services
+from app.storage import LocalEvidenceStorage
 
 
 @asynccontextmanager
@@ -31,9 +32,11 @@ def create_app() -> FastAPI:
     engine = build_engine(settings)
     session_factory = build_session_factory(engine)
 
+    storage = LocalEvidenceStorage(settings.evidence_root)
     services = Services(
         case_service=CaseService(session_factory, logger),
         auth_service=AuthService(session_factory, settings, logger),
+        evidence_service=EvidenceService(session_factory, storage, settings, logger),
     )
 
     app = FastAPI(
