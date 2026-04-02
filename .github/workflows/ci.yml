@@ -1,0 +1,96 @@
+name: ClaimVault CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-ruff:
+    name: Backend Ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "./apps/api[dev]"
+      - name: Run Ruff
+        run: make api-lint
+
+  backend-pytest:
+    name: Backend Pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "./apps/api[dev]"
+      - name: Run Pytest
+        run: make api-test
+
+  backend-migrations:
+    name: Backend Migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "./apps/api[dev]"
+      - name: Run Alembic migrations
+        run: make api-migration
+
+  import-check:
+    name: Import Guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "./apps/api[dev]"
+      - name: Validate import surface
+        run: make import-check
+
+  frontend-lint:
+    name: Frontend Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install JavaScript dependencies
+        run: pnpm install
+      - name: Run Next.js lint
+        run: cd apps/web && pnpm lint
+
+  frontend-typecheck:
+    name: Frontend Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install JavaScript dependencies
+        run: pnpm install
+      - name: Run Next.js typecheck
+        run: cd apps/web && pnpm typecheck

@@ -40,3 +40,6 @@ class Settings(BaseSettings):
     max_evidence_size_bytes: int = 10 * 1024 * 1024
     export_root: Path = Field(default_factory=default_export_root)
     vault_packager: str = "default"
+
+
+settings = Settings()

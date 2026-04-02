@@ -1,22 +1,27 @@
 # Roadmap
 
-## Near Term (Weeks 1�2)
-1. **Harden REST payloads** with shared contracts and validation tests so the frontend can rely on stable types.
-2. **Implement case timeline + missing-evidence rules** for return, dispute, and warranty claim types plus workflow transitions.
-3. **Wire authentication + audit events** for every status change and evidence upload.
-4. **Stabilize exports** (PDF/JSON) that capture timeline, evidence tags, and metadata.
+ClaimVault advances through measured phases so the product stays trustworthy while the backlog grows.
 
-## Mid Term (Weeks 3�6)
-- Introduce **Alembic migrations** that mirror SQLModel schemas and ensure schema drift does not occur.
-- Replace the development storage stub with a pluggable interface so uploads can later leverage S3 or similar.
-- Add **audit dashboards** in the Next.js UI to surface compliance events and tamper alerts.
-- Build **CI workflows** that lint/test Python, run ESLint/type checking in the frontend, and validate contracts.
+## Phase 0 â€“ Foundation (complete)
+- FastAPI app factory with settings, structured logging, services, and lifespan wiring.
+- Next.js App Router shell with typed API client scaffolded from packages/contracts.
+- Domain models for users, workspaces, cases, evidence, timeline events, exports, and audit entries.
+- Guardrails: .env templates, import-check script, Makefile targets, and CI-ready layouts.
 
-## Longer Term (Month 2+)
-- Keep all MVP features stable while exploring **automation hooks** for claim enrichment, review queues, and 3rd-party integrations.
-- Expand exports into **compliance-ready packages** for partners (signed JSON, PDF, + manifest).
-- Prepare the system for **secure onboarding** by adding RBAC layers and safer encryption for evidence-at-rest.
+## Phase 1 â€“ Case building and workflows (shipping)
+- Auth + RBAC with JWTs, password hashing, current-user dependency, and workspace membership checks.
+- Case CRUD plus workflows via /api/cases/{id}/transition, timeline events, notes, and evidence ingestion.
+- Readiness analyzer scoring cases for missing evidence, optional items, and export blockers.
+- Frontend listing/detail flows, audit tab, readiness panel, note creation, and upload UX.
 
+## Phase 2 â€“ Proof exports and audit trust
+- Deterministic export bundles with summary, timeline, evidence manifest, checksums, and zipped files.
+- Audit and timeline surfaces that appends every transition, upload, and export with human-readable metadata.
+- Frontend download flows, audit tab, and export visibility to let operators leave the platform with verifiable proof.
 
-- Formalize the Liquefy vault seam by driving verified packing, searchable vault bundles, proof artifact streaming, and policy/redaction-aware exports through the new VaultPackager interface before the partner repo is onboarded.
-- Layer in Liquefy safe-restore helpers and policy audits via the same seam once the integration surfaces APIs.
+## Phase 3 â€“ Liquefy, automation, and trust services
+- VaultPackager seam drives Liquefy integration for verified packing, search, proof artifacts, policy/redaction, and safe restore.
+- Liquefy adapter implements the LiquefyPackager stub without touching the public API contract.
+- Automation hooks replay audits, readiness rules, and exports so the platform can coordinate with Liquefy's agents.
+
+For each phase, update docs/ARCHITECTURE.md and docs/SECURITY_MODEL.md so reviewers understand how data flows and what risks are mitigated. Branch protection (see docs/GOVERNANCE.md) keeps these releases safe.
