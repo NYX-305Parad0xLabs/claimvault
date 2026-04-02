@@ -44,3 +44,4 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for the exact onboarding steps, fro
 - docs/MVP_CHECKLIST.md – release-ready checklist of what is finished and what is tracked for later.
 - docs/SECURITY_MODEL.md / docs/GOVERNANCE.md – authentication/audit controls and required CI sweeps.
 - docs/ENVIRONMENT.md – sample variable definitions for the root API/web `.env` files.
+- docs/JUGGERNAUT_VISION.md – the three-layer future of deterministic cases, guided evidence, and verified vaults.

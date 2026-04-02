@@ -1,13 +1,13 @@
-ï»¿# MVP Checklist
+# MVP Checklist
 
-## Ready for release
-- FastAPI app factory with structured logging, config, SQLModel, Alembic migrations, and import-guarded services.
-- Authentication with JWTs, role-based workspace membership, and secure audit logging for key actions.
-- Case CRUD, workflow transitions, readiness scoring, evidence uploads, timeline events, and deterministic proof exports.
-- Next.js App Router UI with typed API client, case list/detail flows, audit visibility, readiness panels, and evidence support.
-- Guardrails: shared .env templates, docs/BOOTSTRAP.md, docs/DEV_SETUP.md, docs/GOVERNANCE.md, scripts/check_imports.py, make ci, and GitHub Actions covering lint/test/migration/typecheck.
+## Core delivery (released)
+- FastAPI factory with SQLModel, Alembic, structured logging, and dependency-injected services.
+- JWT auth, role-based workspace membership, audit logging, and workspace-isolated imports.
+- Case CRUD, strict workflow transitions, readiness scoring, evidence ingestion, timeline/notes, export bundling, and audit surfaces.
+- Next.js App Router UI (login/register, case list/detail, readiness/audit panels, evidence upload/download) plus typed API clients.
+- Guardrails: `.env` templates, `scripts/check_imports.py`, Makefile targets (`ci`, `import-check`, lint/test), and GitHub Actions running Ruff, pytest, migrations, lint, and typecheck.
 
-## Pending work (tracked via roadmap & issues)
-- Email ingestion, OCR/text extraction, and merchant-specific templates for richer evidence capture.
-- Case sharing workflows, Liquefy integration (packaging + search), and NULLA workflow assistant hooks.
-- DNA-paid export delivery, S3/remote storage backend, Parad0x Command desktop companion, and mobile capture flow.
+## High-priority follow-up
+- OCR/PDF/text extraction, email ingestion, and merchant-specific templates so readiness/export narratives stay consistent across claim types.
+- NULLA/automation addition (missing-proof tasks, timeline summaries, evidence classification) without ever shipping synthetic AI claims.
+- Liquefy and DNA/export upgrades, plus S3 storage, shareable handoffs, and mobile/desktop companions to make the platform enterprise-grade.
