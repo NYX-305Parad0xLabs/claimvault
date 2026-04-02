@@ -74,6 +74,7 @@ export type CaseSummary = {
   status: string;
   claim_type: string;
   merchant_name?: string | null;
+  due_date?: string | null;
   summary?: string | null;
   updated_at: string;
 };
@@ -82,6 +83,21 @@ export type CaseDetail = CaseSummary & {
   order_reference?: string | null;
   amount_value: number;
   created_at: string;
+  due_date?: string | null;
+};
+
+export type CaseFilter = {
+  status?: string;
+  claim_type?: string;
+};
+
+export type CaseCreateRequest = {
+  title: string;
+  claim_type: string;
+  summary: string;
+  merchant_name?: string;
+  order_reference?: string;
+  due_date?: string;
 };
 
 export function login(payload: AuthRequest) {
@@ -98,10 +114,30 @@ export function register(payload: RegisterRequest) {
   });
 }
 
-export function fetchCases() {
-  return request<CaseSummary[]>("/cases?limit=30");
-}
-
 export function fetchCase(id: string) {
   return request<CaseDetail>(`/cases/${id}`);
+}
+
+function buildQuery(filters?: CaseFilter) {
+  const params = new URLSearchParams();
+  params.set("limit", "30");
+  if (filters?.status) {
+    params.set("status", filters.status);
+  }
+  if (filters?.claim_type) {
+    params.set("claim_type", filters.claim_type);
+  }
+  return params.toString();
+}
+
+export function fetchCases(filters?: CaseFilter) {
+  const query = buildQuery(filters);
+  return request<CaseSummary[]>(`/cases?${query}`);
+}
+
+export function createCase(payload: CaseCreateRequest) {
+  return request<CaseDetail>("/cases", {
+    method: "POST",
+    body: payload,
+  });
 }
