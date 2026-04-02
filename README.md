@@ -1,87 +1,47 @@
-ï»¿# ClaimVault
+﻿# ClaimVault
 
-ClaimVault is the case-building and export engine Parad0x Labs uses to turn returns, disputes, chargebacks, and warranty investigations into auditable proof bundles. The platform combines a typed FastAPI backend, a responsive Next.js UI, and shared contract definitions so every mutation stays observable, validated, and traceable.
+Messy evidence in → verified case package out.
 
-## Vision
-- Provide operators with a trustworthy timeline and missing-evidence checklist before any claim leaves the org.
-- Keep MVP infrastructure lean (FastAPI + SQLite + Next.js) so the team can iterate without heavy ops costs.
-- Preserve trust through append-only audit events, deterministic exports, and transparent readiness rules.
+ClaimVault is the verified evidence and dispute operating system for operations teams chasing refunds, warranties, chargebacks, damaged shipments, and move-out disputes. It ingests receipts, emails, photos, notes, and uploaded files, builds a timeline and missing-evidence checklist, and exports auditable proof bundles with hashed documents and append-only logs.
 
-## Current MVP Scope
-1. FastAPI backend with SQLModel + Alembic, auth/RBAC, readiness analysis, audit spine, evidence storage, and proof exports.
-2. Next.js 15 App Router frontend with typed API client, login/register flows, case listings, detail timelines, readiness panels, and audit visibility.
-3. Shared JSON schemas in packages/contracts to keep backend and frontend contracts aligned.
-4. Guardrails for local development: .env templates, import-check scripts, Makefile helpers, and CI workflows.
+## Who it is for
+- Customer ops teams that must prove refunds, warranty claims, or chargeback defenses with tight audit trails.
+- Compliance owners who need a single-pane timeline that ties evidence, timeline notes, readiness scores, and exports together.
+- Internal review squads that want deterministic case data for external partners (e.g., Liquefy) without relying on manual spreadsheets.
 
-## Stack
-| Layer | Tooling |
-| --- | --- |
-| Backend | Python 3.12, FastAPI, SQLModel, Alembic, Ruff, Pytest, SQLite |
-| Frontend | Next.js 15, React 18, TypeScript, ESLint, pnpm |
-| Contracts | packages/contracts JSON schemas consumed by API routes and the typed client |
-| Tooling | Makefile, scripts/bootstrap, scripts/check_imports, GitHub Actions CI |
+## MVP snapshot
+- FastAPI core case engine with SQLModel, migrations, JWT auth, workspace RBAC, and ALEMBIC-managed schema.
+- Evidence ingestion, timeline events, readiness analyzer, audit spine, and deterministic proof exports (summary + manifest + checksums + zipped evidence).
+- Next.js App Router UI with typed API client, login/register flows, case list/detail screens, readiness panels, audit tabs, and evidence upload/download.
+- Guardrails for local dev: .env templates, scripts/check_imports.py, Makefile targets, and GitHub Actions running Ruff, pytest, migrations, lint, typecheck, and the import guard.
+
+## Architecture at a glance
+### Core case engine
+Cases are SQLModel entities that capture metadata (claim type, workflow status, financials, dates) scoped to workspaces. Mutations go through services that enforce transitions, emit audit events, and trigger readiness scoring.
+### Evidence timeline
+Every upload, note, or manual event is appended to the timeline. Timeline events and evidence items share metadata, tags, hashes, and audit entries so investigators can follow the story in order.
+### Readiness rules
+The readiness analyzer runs claim-type‑specific rule sets (return, warranty, chargeback, damaged shipment, rental dispute). It returns a score, missing required items, optional recommendations, and blockers that must be resolved before exports.
+### Proof bundle export
+Export service bundles summary.md, case.json, 	imeline.json, evidence_manifest.json, and checksums.txt plus the evidence files. The VaultPackager interface keeps exports deterministic and ready for future partners.
+### Audit spine
+Every action that touches a case (status transition, evidence upload, export generation, auth events) writes an append-only AuditEvent with actor, timestamp, entity type, and metadata. The UI surfaces these events on the case detail audit tab.
+### Future integrations
+Liquefy: drop-in packing/search/proof artifact partner once the VaultPackager seam receives real APIs.
+NULLA: workflow assistant that can trigger notes, readiness reminders, or evidence requests via the existing service surface.
+DNA anchoring: paid exports will embed cryptographic anchors and metadata in the manifest so downstream verifiers can trust the package.
 
 ## Quickstart
-1. Clone the repo and drop into it: git clone git@github.com:<you>/claimvault.git && cd claimvault.
-2. Copy the shared configuration samples and adjust secrets:
-   - cp .env.example .env
-   - cp apps/api/.env.example apps/api/.env
-   - cp apps/web/.env.example apps/web/.env
-3. Install dependencies via the shared scripts: make install (or run scripts/bootstrap.sh on UNIX, scripts/bootstrap.ps1 in PowerShell).
-4. Ensure quality gates pass locally with make ci (runs Ruff, pytest, migrations, frontend lint/typecheck, and the import guard).
-5. Start the services:
-   - make api-dev
-   - make web-dev
-6. Reference docs/BOOTSTRAP.md for the onboarding checklist, docs/DEV_SETUP.md for OS-specific tips, and docs/GOVERNANCE.md for branch protection requirements.
+1. Clone the repo and drop into it: git clone git@github.com:NYX-305Parad0xLabs/claimvault.git && cd claimvault.
+2. Copy configuration samples: cp .env.example .env, cp apps/api/.env.example apps/api/.env, cp apps/web/.env.example apps/web/.env.
+3. Install dependencies: make install (or scripts/bootstrap.sh / scripts/bootstrap.ps1).
+4. Run make ci to exercise Ruff, pytest, migrations, frontend lint/typecheck, and the import guard.
+5. Start the services with make api-dev and make web-dev.
 
-## ASCII Operational Flow
-`
-User â†’ Next.js UI â†’ FastAPI API â†’ SQLite + evidence/export storage
-        â”‚             â”‚
-        â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-            audit + timeline writes
-`
-No UI screenshots yetâ€”focus stays on the typed API, guardrails, and deterministic exports.
-
-## MVP Boundaries
-- **In scope today:** manual case creation, evidence uploads, timelines, workflow rules, audit spine, readiness scoring, deterministic export bundles, JWT auth, SQLite/local storage, and the tooling/CI described above.
-- **Out of scope today:** live email ingestion, OCR automation, merchant templates, case sharing loops, Liquefy integration, NULLA workflow agent, DNA-anchored exports, S3 storage backend, Parad0x Command desktop companion, and mobile capture flows. Those belong to future phases tracked in docs/ROADMAP.md and the new GitHub issues.
-
-## Repository Layout
-- pps/api â€“ FastAPI service with routers, models, services, migrations, tests, and runtime guardrails.
-- pps/web â€“ Next.js App Router frontend, typed API client, and the UX for cases, evidence, and audits.
-- packages/contracts â€“ Shared JSON schemas for API payloads, responses, and exports.
-- docs â€“ Product, architecture, roadmap, security, bootstrap, and governance guidance.
-- scripts â€“ check_imports.py, platform bootstrap helpers, and future automation hooks.
-- Root files â€“ Makefile targets, .env.example, .editorconfig, .gitattributes, and the MIT license.
-
-## Tooling
-- make install â€“ installs backend and frontend dependencies.
-- make api-dev / make web-dev â€“ launch the FastAPI and Next.js services.
-- make api-test, make api-lint, make api-migration â€“ backend quality gates.
-- make web-lint, make web-typecheck â€“ frontend validation.
-- make import-check â€“ detects import-time side effects that could break CI.
-- make ci â€“ runs all the above so CI status checks stay green.
-
-## Docs & Governance
-- docs/ARCHITECTURE.md â€“ system context, entity list, API surface, and the VaultPackager seam ready for Liquefy.
-- docs/ROADMAP.md â€“ planned milestones from foundation to proof exports and partner integrations.
-- docs/SECURITY_MODEL.md â€“ assumptions, controls, audit spine, and threat lists for evidence/case integrity.
-- docs/BOOTSTRAP.md + docs/DEV_SETUP.md â€“ onboarding and platform-specific dev tips.
-- docs/GOVERNANCE.md â€“ mandatory GitHub Actions statuses and branch protection rules.
-
-## Continuous Integration
-GitHub Actions enforces the following checks on main and pull requests:
-- ackend-ruff
-- ackend-pytest
-- ackend-migrations
-- import-check
-- rontend-lint
-- rontend-typecheck
-
-Protect main with these statuses plus required reviews so the audit trails stay trustworthy.
-
-## Next Steps
-1. Expand the shared contracts to cover additional claim payloads and proof artifacts.
-2. Automate Liquefy packing, search, and redaction through the VaultPackager seam.
-3. Add end-to-end tests to lock down the case lifecycle across the API and web UI.
+## Supporting docs
+- docs/POSITIONING.md – product message, buyer cues, and outcomes.
+- docs/USE_CASES.md – concrete use cases (refunds, warranties, chargebacks, damage, rentals).
+- docs/NON_GOALS.md – clearly call out what is outside the MVP.
+- docs/ARCHITECTURE.md – deeper technical context and future-proof details.
+- docs/MVP_CHECKLIST.md – release-ready checklist of what is finished and what is tracked for later.
+- docs/SECURITY_MODEL.md / docs/GOVERNANCE.md – authentication/audit controls and required CI sweeps.
