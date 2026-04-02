@@ -11,16 +11,22 @@ from sqlmodel import Field, SQLModel
 
 class ClaimType(str, Enum):
     """Supported claim types for Case records."""
-    RETURN = "return"
-    DISPUTE = "dispute"
+
+    REFUND = "refund"
     WARRANTY = "warranty"
+    CHARGEBACK_PREP = "chargeback_prep"
+    SHIPMENT_DAMAGE = "shipment_damage"
+    RENTAL_DEPOSIT = "rental_deposit"
 
 
 class CaseStatus(str, Enum):
-    """Valid lifecycle statuses for a Case."""
+    """Lifecycle states for a case."""
+
     DRAFT = "draft"
     COLLECTING_EVIDENCE = "collecting_evidence"
-    READY_TO_EXPORT = "ready_to_export"
+    NEEDS_USER_INPUT = "needs_user_input"
+    READY_FOR_EXPORT = "ready_for_export"
+    EXPORTED = "exported"
     SUBMITTED = "submitted"
     RESOLVED = "resolved"
     CLOSED = "closed"
@@ -28,6 +34,7 @@ class CaseStatus(str, Enum):
 
 class EvidenceKind(str, Enum):
     """Kinds of evidence uploaded to a case."""
+
     RECEIPT = "receipt"
     SCREENSHOT = "screenshot"
     EMAIL_PDF = "email_pdf"
@@ -38,8 +45,17 @@ class EvidenceKind(str, Enum):
     OTHER = "other"
 
 
+class ExtractionStatus(str, Enum):
+    """Evidence extraction progress."""
+
+    PENDING = "pending"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 class ActorType(str, Enum):
     """Actors that can trigger timeline or audit events."""
+
     USER = "user"
     SYSTEM = "system"
     INTEGRATION = "integration"
@@ -47,9 +63,19 @@ class ActorType(str, Enum):
 
 class WorkspaceRole(str, Enum):
     """Roles that determine workspace access levels."""
+
     OWNER = "owner"
     OPERATOR = "operator"
     VIEWER = "viewer"
+
+
+class CounterpartyType(str, Enum):
+    """Types of entities that can be counterparty profiles."""
+
+    MERCHANT = "merchant"
+    LANDLORD = "landlord"
+    CARRIER = "carrier"
+    MANUFACTURER = "manufacturer"
 
 
 class User(SQLModel, table=True):
@@ -81,15 +107,47 @@ class WorkspaceMembership(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class CounterpartyProfile(SQLModel, table=True):
+    """Lightweight counterparty data (merchant, landlord, carrier, manufacturer)."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    workspace_id: int = Field(foreign_key="workspace.id", index=True)
+    name: str
+    profile_type: CounterpartyType
+    metadata_json: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(JSON, nullable=False, server_default="{}"),
+    )
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ClaimTemplate(SQLModel, table=True):
+    """Future-ready template capturing required evidence sets."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    workspace_id: int = Field(foreign_key="workspace.id", index=True)
+    name: str
+    description: Optional[str] = None
+    required_fields: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(JSON, nullable=False, server_default="{}"),
+    )
+    active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Case(SQLModel, table=True):
     """Claim case with metadata, thresholds, and status lifecycle."""
 
     id: Optional[int] = Field(default=None, primary_key=True)
     workspace_id: int = Field(foreign_key="workspace.id", index=True)
+    template_id: Optional[int] = Field(default=None, foreign_key="claimtemplate.id", index=True)
     title: str
     claim_type: ClaimType
     status: CaseStatus = Field(default=CaseStatus.DRAFT)
     counterparty_name: Optional[str] = None
+    counterparty_profile_id: Optional[int] = Field(default=None, foreign_key="counterpartyprofile.id")
     merchant_name: Optional[str] = None
     order_reference: Optional[str] = None
     amount_currency: str = Field(default="USD")
@@ -116,6 +174,7 @@ class EvidenceItem(SQLModel, table=True):
     sha256: str
     size_bytes: int
     source_label: Optional[str] = None
+    extraction_status: ExtractionStatus = Field(default=ExtractionStatus.PENDING)
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
     extracted_text: Optional[str] = None
     metadata_json: dict[str, Any] = Field(
@@ -141,13 +200,32 @@ class TimelineEvent(SQLModel, table=True):
     )
 
 
-class CaseExport(SQLModel, table=True):
-    """Exported bundle produced for reviewers."""
+class MissingEvidenceCheck(SQLModel, table=True):
+    """Structured record of each rule evaluated for readiness."""
 
     id: Optional[int] = Field(default=None, primary_key=True)
     case_id: int = Field(foreign_key="case.id", index=True)
-    export_format: str = Field(default="pdf")
+    rule_key: str
+    description: str
+    required: bool = True
+    satisfied: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_checked_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ExportArtifact(SQLModel, table=True):
+    """Deterministic export bundle metadata."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    case_id: int = Field(foreign_key="case.id", index=True)
+    artifact_type: str = Field(default="bundle")
     storage_key: str
+    manifest_hash: Optional[str] = None
+    archive_hash: Optional[str] = None
+    metadata_json: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(JSON, nullable=False, server_default="{}"),
+    )
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

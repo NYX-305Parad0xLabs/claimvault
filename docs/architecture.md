@@ -26,6 +26,20 @@ ClaimVault is a verified evidence and dispute operating system that keeps every 
 - Every meaningful action (status transition, evidence upload, timeline note, export, register/login) writes an AuditEvent with actor, entity type, entity id, action, happened_at, and metadata.
 - The audit surface filters by workspace, orders by time, and exposes human-readable insights through the UI so trust reviewers can inspect changes.
 
+## Domain Entities
+| Entity | Description |
+| --- | --- |
+| `User` | Platform operators/auditors with hashed credentials and workspace membership. |
+| `Workspace` | Tenant boundary separating cases, counterparty profiles, templates, and exports. |
+| `Case` | Core claim aggregate tracking lifecycle, metadata, and pointers to templates/counterparties. |
+| `EvidenceItem` | Evidence uploaded per case with hash, mime, source label, extraction status, and metadata. |
+| `TimelineEvent` | Append-only events for status transitions, notes, uploads, and exports. |
+| `MissingEvidenceCheck` | Rule evaluations stored with required/recommended flags, satisfaction booleans, and timestamps. |
+| `ExportArtifact` | Deterministic bundle metadata (manifest hash, archive hash, storage key) for proof generation. |
+| `CounterpartyProfile` | Lightweight merchant/landlord/carrier/manufacturer records sharable between cases. |
+| `ClaimTemplate` | Planned templates describing required evidence sets for a theme or merchant vertical. |
+| `AuditEvent` | Append-only audit spine with actor, action, entity, and metadata per mutation. |
+
 ## Future integrations
 - **Liquefy** – a partner-grade packager/search service will plug into VaultPackager, supplying verified packing, search indexes, and proof artifact metadata without altering the public API.
 - **NULLA** – workflow assistant that can observe readiness blockers, emit timeline events, and trigger evidence reminders via the existing router surface.

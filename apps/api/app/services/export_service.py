@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import json
 import logging
+from hashlib import sha256 as hashlib_sha256
 from pathlib import Path
 from typing import Callable
 
 from fastapi import status
 from sqlmodel import Session, select
 
-from app.models.claim import ActorType, AuditEvent, Case, CaseExport, EvidenceItem, TimelineEvent
+from app.models.claim import ActorType, AuditEvent, Case, ExportArtifact, EvidenceItem, TimelineEvent
 from app.schemas.export import CaseExportRead
 from app.services.packager import VaultPackager
 from app.storage import ExportStorage
@@ -72,7 +74,18 @@ class ExportService:
                 packaging.content,
             )
 
-            case_export = CaseExport(case_id=case.id, export_format=export_format, storage_key=storage_key)
+            manifest_content = json.dumps(packaging.manifest, sort_keys=True, ensure_ascii=False).encode("utf-8")
+            case_export = ExportArtifact(
+                case_id=case.id,
+                artifact_type="bundle",
+                storage_key=storage_key,
+                manifest_hash=hashlib_sha256(manifest_content).hexdigest(),
+                archive_hash=hashlib_sha256(packaging.content).hexdigest(),
+                metadata_json={
+                    "records": len(packaging.manifest.get("records", [])),
+                    "packager": self._packager.name,
+                },
+            )
             session.add(case_export)
             session.flush()
             export_id = case_export.id
@@ -120,9 +133,9 @@ class ExportService:
 
             return CaseExportRead.model_validate(case_export.model_dump())
 
-    def get_export(self, workspace_id: int, case_id: int, export_id: int) -> CaseExport:
+    def get_export(self, workspace_id: int, case_id: int, export_id: int) -> ExportArtifact:
         with self._session_factory() as session:
-            export = session.get(CaseExport, export_id)
+            export = session.get(ExportArtifact, export_id)
             case = session.get(Case, case_id)
             if not export or not case:
                 raise ExportServiceError("export not found", status.HTTP_404_NOT_FOUND)

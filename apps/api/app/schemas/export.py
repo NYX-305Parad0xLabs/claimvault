@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -15,6 +15,9 @@ class CaseExportRead(BaseModel):
     model_config = ConfigDict(frozen=True)
     id: int
     case_id: int
-    export_format: str
+    artifact_type: str
     storage_key: str
+    manifest_hash: str | None
+    archive_hash: str | None
+    metadata_json: dict[str, Any]
     created_at: datetime

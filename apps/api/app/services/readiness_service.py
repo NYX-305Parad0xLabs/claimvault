@@ -11,6 +11,7 @@ from app.models.claim import (
     Case,
     ClaimType,
     EvidenceItem,
+    MissingEvidenceCheck,
     TimelineEvent,
 )
 from app.schemas.readiness import ReadinessReport
@@ -30,7 +31,7 @@ class ReadinessService:
         self._session_factory = session_factory
         self._logger = logger
         self._rules = {
-            ClaimType.RETURN: [
+            ClaimType.REFUND: [
                 Rule(
                     "order_reference",
                     "Provide the customer order reference",
@@ -48,26 +49,26 @@ class ReadinessService:
                 Rule(
                     "receipt",
                     "Upload at least one receipt or order document",
-                    20,
+                    25,
                     True,
                     lambda case, ctx: ctx["evidence_count"] >= 1,
                 ),
                 Rule(
                     "timeline_event",
-                    "Add at least one timeline entry",
+                    "Add at least one timeline entry before export",
                     20,
                     True,
                     lambda case, ctx: ctx["timeline_count"] >= 1,
                 ),
                 Rule(
-                    "receipt_depth",
+                    "supporting_docs",
                     "Include more than one supporting document when available",
-                    20,
+                    15,
                     False,
                     lambda case, ctx: ctx["evidence_count"] >= 2,
                 ),
             ],
-            ClaimType.DISPUTE: [
+            ClaimType.CHARGEBACK_PREP: [
                 Rule(
                     "amount",
                     "Record the disputed amount",
@@ -141,6 +142,52 @@ class ReadinessService:
                     lambda case, ctx: ctx["timeline_count"] >= 1,
                 ),
             ],
+            ClaimType.SHIPMENT_DAMAGE: [
+                Rule(
+                    "damage_report",
+                    "Add a damage report or photo note describing the shipment issue",
+                    20,
+                    True,
+                    lambda case, ctx: bool(case.summary),
+                ),
+                Rule(
+                    "timeline_event",
+                    "Capture each inspection step in the timeline",
+                    20,
+                    True,
+                    lambda case, ctx: ctx["timeline_count"] >= 1,
+                ),
+                Rule(
+                    "evidence",
+                    "Upload a photo, inspection report, or carrier note",
+                    20,
+                    True,
+                    lambda case, ctx: ctx["evidence_count"] >= 1,
+                ),
+            ],
+            ClaimType.RENTAL_DEPOSIT: [
+                Rule(
+                    "inspection_notes",
+                    "Log move-in/out inspections and findings",
+                    20,
+                    True,
+                    lambda case, ctx: ctx["timeline_count"] >= 2,
+                ),
+                Rule(
+                    "damage_photos",
+                    "Include photos or reports tied to repair requests",
+                    20,
+                    True,
+                    lambda case, ctx: ctx["evidence_count"] >= 1,
+                ),
+                Rule(
+                    "communication_log",
+                    "Summarize tenant/property communications or agreements",
+                    20,
+                    True,
+                    lambda case, ctx: bool(case.summary),
+                ),
+            ],
         }
 
     def _gather_context(self, session: Session, case_id: int) -> tuple[Case, dict[str, int]]:
@@ -166,8 +213,18 @@ class ReadinessService:
             earned_required = 0
             missing = []
             recommended = []
+            checks: list[MissingEvidenceCheck] = []
             for rule in rules:
                 satisfied = rule.predicate(case, ctx)
+                checks.append(
+                    MissingEvidenceCheck(
+                        case_id=case.id,
+                        rule_key=rule.name,
+                        description=rule.description,
+                        required=rule.required,
+                        satisfied=satisfied,
+                    )
+                )
                 if rule.required:
                     if satisfied:
                         earned_required += rule.weight
@@ -177,6 +234,8 @@ class ReadinessService:
                     recommended.append(rule.description)
             score = int(round((earned_required / required_weight) * 100)) if required_weight else 0
             blockers = missing.copy()
+            if checks:
+                session.add_all(checks)
             self._logger.info(
                 "readiness evaluated",
                 extra={"case_id": case_id, "claim_type": case.claim_type, "score": score},

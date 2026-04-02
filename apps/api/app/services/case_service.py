@@ -7,20 +7,15 @@ from typing import Callable
 from fastapi import status
 from sqlmodel import Session, select
 
-from app.models.claim import (
-    ActorType,
-    AuditEvent,
-    Case,
-    CaseStatus,
-    ClaimType,
-    TimelineEvent,
-)
+from app.models.claim import ActorType, AuditEvent, Case, CaseStatus, TimelineEvent
 from app.schemas.case import CaseCreate, CaseRead, CaseTransitionRequest, CaseUpdate
 
 TRANSITION_RULES = {
     CaseStatus.DRAFT: {CaseStatus.COLLECTING_EVIDENCE},
-    CaseStatus.COLLECTING_EVIDENCE: {CaseStatus.READY_TO_EXPORT},
-    CaseStatus.READY_TO_EXPORT: {CaseStatus.SUBMITTED},
+    CaseStatus.COLLECTING_EVIDENCE: {CaseStatus.NEEDS_USER_INPUT, CaseStatus.READY_FOR_EXPORT},
+    CaseStatus.NEEDS_USER_INPUT: {CaseStatus.READY_FOR_EXPORT},
+    CaseStatus.READY_FOR_EXPORT: {CaseStatus.EXPORTED},
+    CaseStatus.EXPORTED: {CaseStatus.SUBMITTED},
     CaseStatus.SUBMITTED: {CaseStatus.RESOLVED, CaseStatus.CLOSED},
     CaseStatus.RESOLVED: {CaseStatus.CLOSED},
 }
@@ -170,8 +165,10 @@ class CaseService:
                     event_type="status_transition",
                     actor_type=ActorType.USER,
                     actor_id=actor_id,
-                    body=f"Status changed from {current_status} to {request.target_status}",
-                    metadata_json={"from": current_status, "to": request.target_status},
+                    body=(
+                        f"Status changed from {current_status.value} to {request.target_status.value}"
+                    ),
+                    metadata_json={"from": current_status.value, "to": request.target_status.value},
                 )
             )
             session.add(
@@ -181,7 +178,7 @@ class CaseService:
                     action="transition",
                     actor_type=ActorType.USER,
                     actor_id=actor_id,
-                    metadata_json={"from": current_status, "to": request.target_status},
+                metadata_json={"from": current_status.value, "to": request.target_status.value},
                 )
             )
             session.commit()

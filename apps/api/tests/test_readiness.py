@@ -58,8 +58,8 @@ async def _upload_evidence(async_client, case_id, headers):
 @pytest.mark.parametrize(
     ("claim_type", "extras"),
     [
-        ("return", {"merchant_name": "Shop", "order_reference": "ORD-1"}),
-        ("dispute", {"merchant_name": "Shop", "amount_value": 100}),
+        ("refund", {"merchant_name": "Shop", "order_reference": "ORD-1"}),
+        ("chargeback_prep", {"merchant_name": "Shop", "amount_value": 100}),
         ("warranty", {"order_reference": "ORD-2", "purchase_date": datetime.utcnow().isoformat()}),
     ],
 )
@@ -82,8 +82,8 @@ async def test_readiness_complete(async_client, claim_type, extras):
 @pytest.mark.parametrize(
     ("claim_type", "setup"),
     [
-        ("return", {}),
-        ("dispute", {}),
+        ("refund", {}),
+        ("chargeback_prep", {}),
         ("warranty", {}),
     ],
 )
@@ -103,7 +103,7 @@ async def test_readiness_incomplete(async_client, claim_type, setup):
 @pytest.mark.asyncio
 async def test_readiness_deterministic(async_client):
     headers = await _auth_headers(async_client)
-    case = await _create_case(async_client, headers, "return", merchant_name="Store", order_reference="ORD-3")
+    case = await _create_case(async_client, headers, "refund", merchant_name="Store", order_reference="ORD-3")
     case_id = case["id"]
     await _upload_evidence(async_client, case_id, headers)
     await _add_timeline(async_client, case_id, headers)

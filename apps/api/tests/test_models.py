@@ -7,14 +7,18 @@ from app.models import (
     ActorType,
     AuditEvent,
     Case,
-    CaseExport,
     CaseStatus,
     ClaimType,
+    CounterpartyProfile,
+    CounterpartyType,
+    ExportArtifact,
     EvidenceItem,
     EvidenceKind,
+    MissingEvidenceCheck,
     TimelineEvent,
     Workspace,
 )
+from sqlmodel import select
 
 
 def test_case_creation_and_enums(session_factory):
@@ -27,7 +31,7 @@ def test_case_creation_and_enums(session_factory):
         case = Case(
             workspace_id=workspace.id,
             title="Return - faulty cable",
-            claim_type=ClaimType.RETURN,
+            claim_type=ClaimType.REFUND,
             counterparty_name="Customer A",
             merchant_name="Retailer",
             order_reference="ORD-123",
@@ -43,7 +47,7 @@ def test_case_creation_and_enums(session_factory):
         session.refresh(case)
 
         assert case.status == CaseStatus.DRAFT
-        assert case.claim_type is ClaimType.RETURN
+        assert case.claim_type is ClaimType.REFUND
         assert case.counterparty_name == "Customer A"
 
         evidence = EvidenceItem(
@@ -74,9 +78,12 @@ def test_case_creation_and_enums(session_factory):
         )
         session.add(audit)
 
-        export = CaseExport(
+        export = ExportArtifact(
             case_id=case.id,
-            storage_key="exports/case-1.pdf",
+            storage_key="exports/case-1.zip",
+            manifest_hash="abc",
+            archive_hash="def",
+            metadata_json={"packager": "default"},
         )
         session.add(export)
 
@@ -85,7 +92,50 @@ def test_case_creation_and_enums(session_factory):
         assert evidence.kind == EvidenceKind.RECEIPT
         assert timeline.actor_type == ActorType.USER
         assert audit.entity_type == "case"
-        assert export.export_format == "pdf"
+        assert export.manifest_hash == "abc"
+        assert export.archive_hash == "def"
+        assert export.metadata_json["packager"] == "default"
+
+
+def test_missing_evidence_check(session_factory):
+    with session_factory() as session:
+        workspace = Workspace(name="Tracker")
+        session.add(workspace)
+        session.commit()
+        session.refresh(workspace)
+
+        counterparty = CounterpartyProfile(
+            workspace_id=workspace.id,
+            name="Merchant",
+            profile_type=CounterpartyType.MERCHANT,
+        )
+        session.add(counterparty)
+        session.commit()
+        session.refresh(counterparty)
+
+        case = Case(
+            workspace_id=workspace.id,
+            title="Missing rule case",
+            claim_type=ClaimType.REFUND,
+            counterparty_profile_id=counterparty.id,
+        )
+        session.add(case)
+        session.commit()
+        session.add(
+            MissingEvidenceCheck(
+                case_id=case.id,
+                rule_key="order_reference",
+                description="Order reference required",
+                required=True,
+                satisfied=False,
+            )
+        )
+        session.commit()
+        checks = session.exec(
+            select(MissingEvidenceCheck).where(MissingEvidenceCheck.case_id == case.id)
+        ).all()
+        assert checks
+        assert checks[0].rule_key == "order_reference"
 
 
 def test_timeline_event_metadata(session_factory):
@@ -98,7 +148,7 @@ def test_timeline_event_metadata(session_factory):
         case = Case(
             workspace_id=workspace.id,
             title="Dispute example",
-            claim_type=ClaimType.DISPUTE,
+            claim_type=ClaimType.CHARGEBACK_PREP,
             summary="Test events",
         )
         session.add(case)

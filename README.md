@@ -41,6 +41,8 @@ DNA anchoring: paid exports will embed cryptographic anchors and metadata in the
 ## Supporting docs
 - docs/POSITIONING.md – product message, buyer cues, and outcomes.
 - docs/USE_CASES.md – concrete use cases (refunds, warranties, chargebacks, damage, rentals).
+- docs/DOMAIN_MODEL.md – definitions for cases, evidence, audits, templates, and exports.
+- docs/CASE_LIFECYCLE.md – lifecycle states, transitions, and append-only guardrails.
 - docs/NON_GOALS.md – clearly call out what is outside the MVP.
 - docs/ARCHITECTURE.md – deeper technical context and future-proof details.
 - docs/MVP_CHECKLIST.md – release-ready checklist of what is finished and what is tracked for later.
