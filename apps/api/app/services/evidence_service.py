@@ -80,6 +80,8 @@ class EvidenceService:
         case_id: int,
         filename: str,
         content: bytes,
+        *,
+        kind: EvidenceKind | None = None,
         actor_id: int,
         source_label: str | None = None,
     ) -> EvidenceRead:
@@ -99,7 +101,7 @@ class EvidenceService:
             case = self._validate_case(session, workspace_id, case_id)
             evidence = EvidenceItem(
                 case_id=case.id,
-                kind=EvidenceKind.OTHER,
+                kind=kind or EvidenceKind.OTHER,
                 original_filename=filename,
                 storage_key=storage_key,
                 mime_type=mime_type,

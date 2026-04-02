@@ -16,6 +16,11 @@
 | Dependency injection | Services are provisioned at app startup and injected through `Depends`, avoiding global mutable state that attackers might manipulate. |
 | Export integrity | Proof bundles include digital fingerprints (hashes) of each evidence file, enabling later verification that exports have not been tampered with. |
 
+## Audit Spine
+- The audit spine is an append-only stream of `AuditEvent` entries that tie every case-related mutation to a timestamp, actor, and contextual metadata. It is exposed via the `/cases/{case_id}/audit-events` endpoint and rendered in the case detail UI so operators can verify the provenance of actions such as case creation, updates, evidence uploads, exports, and transitions.
+- Because the API filters events by the owning workspace and orders them by `happened_at`, the audit spine remains immutable and tamper-evident. UI tabs surface actor labels, humanized action names, and succinct metadata (e.g., `from → to`, `Storage abc123`, `Export #42`) instead of dumping raw payloads, supporting trust without overwhelming reviewers.
+- Any future automation (e.g., Liquefy integration) writes its own audit entries through the same spine, ensuring all interactive and automated flows share a single source of truth for accountability.
+
 ## Authentication & Authorization
 
 - **Password safety:** Operator credentials are hashed with bcrypt via `passlib` and only the hash is persisted; duplicate emails are rejected to avoid enumeration.

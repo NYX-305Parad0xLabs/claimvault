@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 from pathlib import Path
 
 from app.api.v1.deps import (
+    get_audit_service,
     get_case_service,
     get_current_workspace_member,
     require_workspace_role,
@@ -14,7 +15,8 @@ from app.api.v1.deps import (
     get_timeline_service,
 )
 from app.models import WorkspaceMembership, WorkspaceRole
-from app.models.claim import CaseStatus, ClaimType
+from app.models.claim import CaseStatus, ClaimType, EvidenceKind
+from app.schemas.audit import AuditEventRead
 from app.schemas.case import (
     CaseCreate,
     CaseRead,
@@ -34,6 +36,7 @@ from app.services.evidence_service import EvidenceService, EvidenceServiceError
 from app.services.export_service import ExportService, ExportServiceError
 from app.services.readiness_service import ReadinessService
 from app.services.timeline_service import TimelineService, TimelineServiceError
+from app.services.audit_service import AuditService, AuditServiceError
 
 router = APIRouter(prefix="/cases", tags=["cases"])
 
@@ -51,6 +54,10 @@ def _handle_timeline_error(error: TimelineServiceError) -> HTTPException:
 
 
 def _handle_export_error(error: ExportServiceError) -> HTTPException:
+    return HTTPException(status_code=error.status_code, detail=error.detail)
+
+
+def _handle_audit_error(error: AuditServiceError) -> HTTPException:
     return HTTPException(status_code=error.status_code, detail=error.detail)
 
 
@@ -94,7 +101,11 @@ def create_case(
         require_workspace_role(WorkspaceRole.OWNER, WorkspaceRole.OPERATOR)
     ),
 ) -> CaseRead:
-    return case_service.create_case(payload, workspace_member.workspace_id)
+    return case_service.create_case(
+        payload,
+        workspace_member.workspace_id,
+        actor_id=workspace_member.user_id,
+    )
 
 
 @router.patch("/{case_id}", response_model=CaseRead)
@@ -107,7 +118,12 @@ def update_case(
     ),
 ) -> CaseRead:
     try:
-        return case_service.update_case(workspace_member.workspace_id, case_id, payload)
+        return case_service.update_case(
+            workspace_member.workspace_id,
+            case_id,
+            payload,
+            actor_id=workspace_member.user_id,
+        )
     except CaseServiceError as error:
         raise _handle_case_error(error)
 
@@ -148,6 +164,7 @@ def list_evidence(
 async def upload_evidence(
     case_id: int,
     file: UploadFile = File(...),
+    kind: EvidenceKind | None = Query(None),
     evidence_service: EvidenceService = Depends(get_evidence_service),
     workspace_member: WorkspaceMembership = Depends(
         require_workspace_role(WorkspaceRole.OWNER, WorkspaceRole.OPERATOR)
@@ -160,6 +177,7 @@ async def upload_evidence(
             case_id,
             file.filename,
             content,
+            kind=kind,
             actor_id=workspace_member.user_id,
             source_label="upload",
         )
@@ -205,6 +223,26 @@ def get_timeline(
         return timeline_service.list_events(workspace_member.workspace_id, case_id)
     except TimelineServiceError as error:
         raise _handle_timeline_error(error)
+
+
+@router.get("/{case_id}/audit-events", response_model=list[AuditEventRead])
+def list_audit_events(
+    case_id: int,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    audit_service: AuditService = Depends(get_audit_service),
+    workspace_member: WorkspaceMembership = Depends(get_current_workspace_member),
+) -> list[AuditEventRead]:
+    try:
+        events = audit_service.list_case_events(
+            workspace_member.workspace_id,
+            case_id,
+            limit=limit,
+            offset=offset,
+        )
+    except AuditServiceError as error:
+        raise _handle_audit_error(error)
+    return [AuditEventRead.model_validate(event) for event in events]
 
 
 @router.post("/{case_id}/timeline-events", response_model=TimelineEventRead, status_code=status.HTTP_201_CREATED)

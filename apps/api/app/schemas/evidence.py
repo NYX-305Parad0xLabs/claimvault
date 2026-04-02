@@ -4,6 +4,8 @@ from datetime import datetime
 
 from sqlmodel import SQLModel
 
+from app.models.claim import EvidenceKind
+
 
 class EvidenceRead(SQLModel):
     id: int
@@ -14,6 +16,7 @@ class EvidenceRead(SQLModel):
     size_bytes: int
     uploaded_at: datetime
     storage_key: str
+    kind: EvidenceKind
     source_label: str | None = None
 
     class Config:

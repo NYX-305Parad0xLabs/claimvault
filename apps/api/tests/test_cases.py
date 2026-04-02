@@ -252,3 +252,54 @@ async def test_timeline_event_attached_to_evidence(async_client):
     )
     assert response.status_code == 201
     assert response.json()["evidence_id"] == evidence_id
+
+
+@pytest.mark.asyncio
+async def test_audit_events_surface_policy(async_client):
+    headers = await _auth_headers(async_client)
+    case = await _create_case(async_client, headers)
+    case_id = case["id"]
+
+    await async_client.patch(
+        f"/api/cases/{case_id}",
+        json={"summary": "Audit test update"},
+        headers=headers,
+    )
+
+    await async_client.post(
+        f"/api/cases/{case_id}/transition",
+        json={"target_status": CaseStatus.COLLECTING_EVIDENCE},
+        headers=headers,
+    )
+
+    await async_client.post(
+        f"/api/cases/{case_id}/evidence",
+        files={"file": ("proof.pdf", b"%PDF-audit", "application/pdf")},
+        headers=headers,
+    )
+
+    await async_client.post(
+        f"/api/cases/{case_id}/exports",
+        json={"export_format": "zip"},
+        headers=headers,
+    )
+
+    audit_response = await async_client.get(
+        f"/api/cases/{case_id}/audit-events", headers=headers
+    )
+    assert audit_response.status_code == 200
+    actions = {event["action"] for event in audit_response.json()}
+    assert {"create", "update", "upload", "transition", "export"}.issubset(actions)
+
+
+@pytest.mark.asyncio
+async def test_audit_events_scope_enforced(async_client):
+    headers = await _auth_headers(async_client)
+    case = await _create_case(async_client, headers)
+    case_id = case["id"]
+
+    other_headers = await _auth_headers(async_client)
+    blocked = await async_client.get(
+        f"/api/cases/{case_id}/audit-events", headers=other_headers
+    )
+    assert blocked.status_code == 404

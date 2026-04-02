@@ -71,7 +71,13 @@ class CaseService:
                 raise CaseServiceError("case not found", status.HTTP_404_NOT_FOUND)
             return CaseRead.model_validate(case)
 
-    def create_case(self, payload: CaseCreate, workspace_id: int) -> CaseRead:
+    def create_case(
+        self,
+        payload: CaseCreate,
+        workspace_id: int,
+        *,
+        actor_id: int | None = None,
+    ) -> CaseRead:
         with self._session_factory() as session:
             case = Case(
                 workspace_id=workspace_id,
@@ -88,12 +94,31 @@ class CaseService:
                 summary=payload.summary,
             )
             session.add(case)
+            session.flush()
+            metadata = payload.model_dump(exclude_none=True)
+            session.add(
+                AuditEvent(
+                    entity_type="case",
+                    entity_id=case.id,
+                    action="create",
+                    actor_type=ActorType.USER if actor_id else ActorType.SYSTEM,
+                    actor_id=actor_id,
+                    metadata_json={"fields": list(metadata.keys())},
+                )
+            )
             session.commit()
             session.refresh(case)
             self._logger.info("case created", extra={"case_id": case.id})
             return CaseRead.model_validate(case)
 
-    def update_case(self, workspace_id: int, case_id: int, payload: CaseUpdate) -> CaseRead:
+    def update_case(
+        self,
+        workspace_id: int,
+        case_id: int,
+        payload: CaseUpdate,
+        *,
+        actor_id: int | None = None,
+    ) -> CaseRead:
         with self._session_factory() as session:
             case = session.get(Case, case_id)
             if not case or case.workspace_id != workspace_id:
@@ -103,6 +128,17 @@ class CaseService:
             for attr, value in updates.items():
                 setattr(case, attr, value)
             case.updated_at = datetime.utcnow()
+            if updates:
+                session.add(
+                    AuditEvent(
+                        entity_type="case",
+                        entity_id=case.id,
+                        action="update",
+                        actor_type=ActorType.USER if actor_id else ActorType.SYSTEM,
+                        actor_id=actor_id,
+                        metadata_json={"updated_fields": list(updates.keys())},
+                    )
+                )
             session.commit()
             session.refresh(case)
             return CaseRead.model_validate(case)

@@ -8,6 +8,7 @@ from sqlmodel import Session
 
 from app.models import User, WorkspaceMembership, WorkspaceRole
 from app.services import (
+    AuditService,
     AuthService,
     CaseService,
     EvidenceService,
@@ -53,6 +54,10 @@ def get_readiness_service(services: Services = Depends(get_services)) -> Readine
 
 def get_export_service(services: Services = Depends(get_services)) -> ExportService:
     return services.export_service
+
+
+def get_audit_service(services: Services = Depends(get_services)) -> AuditService:
+    return services.audit_service
 
 
 def _unauthorized(detail: str = "Unauthorized") -> HTTPException:

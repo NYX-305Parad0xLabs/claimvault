@@ -10,6 +10,7 @@ from app.core.db import build_engine, build_session_factory
 from app.core.logger import configure_structured_logger
 from app.models import metadata as models_metadata
 from app.services import (
+    AuditService,
     AuthService,
     CaseService,
     EvidenceService,
@@ -43,6 +44,7 @@ def create_app() -> FastAPI:
     evidence_storage = LocalEvidenceStorage(settings.evidence_root)
     export_storage = LocalExportStorage(settings.export_root)
     services = Services(
+        audit_service=AuditService(session_factory, logger),
         case_service=CaseService(session_factory, logger),
         auth_service=AuthService(session_factory, settings, logger),
         evidence_service=EvidenceService(session_factory, evidence_storage, settings, logger),

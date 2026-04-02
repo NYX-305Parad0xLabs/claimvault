@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from .audit_service import AuditService
 from .auth_service import AuthService
 from .case_service import CaseService
 from .evidence_service import EvidenceService
@@ -9,6 +10,7 @@ from .timeline_service import TimelineService
 
 
 __all__ = [
+    "AuditService",
     "AuthService",
     "CaseService",
     "EvidenceService",
@@ -20,6 +22,7 @@ __all__ = [
 
 @dataclass
 class Services:
+    audit_service: AuditService
     case_service: CaseService
     auth_service: AuthService
     evidence_service: EvidenceService
