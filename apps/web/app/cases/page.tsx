@@ -320,7 +320,7 @@ export default function CasesPage() {
           </div>
         )}
         {!searchLoading && !searchError && !searchResults.length && activeSearchTerm && (
-          <StatusMessage>No matches for "{activeSearchTerm}".</StatusMessage>
+          <StatusMessage>No matches for &ldquo;{activeSearchTerm}&rdquo;.</StatusMessage>
         )}
       </div>
 

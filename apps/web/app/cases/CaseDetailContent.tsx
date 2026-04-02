@@ -29,6 +29,9 @@ import {
   DISALLOWED_EVIDENCE_MIMES,
   evidenceKindOptions,
   createCounterpartyProfile,
+  createTimelineNote,
+  downloadEvidence,
+  updateEvidenceExtraction,
   fetchAuditEvents,
   fetchCase,
   fetchCounterpartyProfiles,
@@ -413,10 +416,10 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
       const payload: CounterpartyProfileCreateRequest = {
         name: profileForm.name.trim(),
         profile_type: profileForm.profile_type,
-        website: profileForm.website.trim() || null,
-        support_email: profileForm.support_email.trim() || null,
-        support_url: profileForm.support_url.trim() || null,
-        notes: profileForm.notes.trim() || null,
+        website: profileForm.website?.trim() || null,
+        support_email: profileForm.support_email?.trim() || null,
+        support_url: profileForm.support_url?.trim() || null,
+        notes: profileForm.notes?.trim() || null,
       };
       const created = await createCounterpartyProfile(payload);
       setProfiles((prev) => [created, ...prev]);
@@ -782,7 +785,7 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
               <label className="block text-sm font-medium text-slate-600">
                 Website
                 <input
-                  value={profileForm.website}
+                  value={profileForm.website ?? ""}
                   onChange={(event) =>
                     setProfileForm((prev) => ({ ...prev, website: event.target.value }))
                   }
@@ -793,7 +796,7 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
               <label className="block text-sm font-medium text-slate-600">
                 Support email
                 <input
-                  value={profileForm.support_email}
+                  value={profileForm.support_email ?? ""}
                   onChange={(event) =>
                     setProfileForm((prev) => ({ ...prev, support_email: event.target.value }))
                   }
@@ -805,7 +808,7 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
             <label className="block text-sm font-medium text-slate-600">
               Support URL
               <input
-                value={profileForm.support_url}
+                value={profileForm.support_url ?? ""}
                 onChange={(event) =>
                   setProfileForm((prev) => ({ ...prev, support_url: event.target.value }))
                 }
@@ -816,7 +819,7 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
             <label className="block text-sm font-medium text-slate-600">
               Notes
               <textarea
-                value={profileForm.notes}
+                value={profileForm.notes ?? ""}
                 onChange={(event) =>
                   setProfileForm((prev) => ({ ...prev, notes: event.target.value }))
                 }
@@ -1117,7 +1120,7 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
           </div>
         )}
         {!caseSearchLoading && !caseSearchError && !caseSearchResults.length && caseActiveSearchTerm && (
-          <StatusMessage>No matches for "{caseActiveSearchTerm}".</StatusMessage>
+          <StatusMessage>No matches for &ldquo;{caseActiveSearchTerm}&rdquo;.</StatusMessage>
         )}
       </section>
 
@@ -1522,3 +1525,4 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
     </>
   );
 }
+
