@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     token_algorithm: str = "HS256"
     evidence_root: Path = Field(default_factory=default_evidence_root)
     max_evidence_size_bytes: int = 10 * 1024 * 1024
+    allowed_evidence_mime_types: tuple[str, ...] = (
+        "application/pdf",
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "text/plain",
+        "application/octet-stream",
+    )
     export_root: Path = Field(default_factory=default_export_root)
     vault_packager: str = "default"
 

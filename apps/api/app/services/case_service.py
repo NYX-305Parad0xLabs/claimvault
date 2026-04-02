@@ -9,16 +9,7 @@ from sqlmodel import Session, select
 
 from app.models.claim import ActorType, AuditEvent, Case, CaseStatus, TimelineEvent
 from app.schemas.case import CaseCreate, CaseRead, CaseTransitionRequest, CaseUpdate
-
-TRANSITION_RULES = {
-    CaseStatus.DRAFT: {CaseStatus.COLLECTING_EVIDENCE},
-    CaseStatus.COLLECTING_EVIDENCE: {CaseStatus.NEEDS_USER_INPUT, CaseStatus.READY_FOR_EXPORT},
-    CaseStatus.NEEDS_USER_INPUT: {CaseStatus.READY_FOR_EXPORT},
-    CaseStatus.READY_FOR_EXPORT: {CaseStatus.EXPORTED},
-    CaseStatus.EXPORTED: {CaseStatus.SUBMITTED},
-    CaseStatus.SUBMITTED: {CaseStatus.RESOLVED, CaseStatus.CLOSED},
-    CaseStatus.RESOLVED: {CaseStatus.CLOSED},
-}
+from app.services.case_state_machine import CaseStateMachine, InvalidCaseTransition
 
 
 class CaseServiceError(Exception):
@@ -28,9 +19,15 @@ class CaseServiceError(Exception):
 
 
 class CaseService:
-    def __init__(self, session_factory: Callable[[], Session], logger: logging.Logger) -> None:
+    def __init__(
+        self,
+        session_factory: Callable[[], Session],
+        logger: logging.Logger,
+        state_machine: CaseStateMachine | None = None,
+    ) -> None:
         self._session_factory = session_factory
         self._logger = logger
+        self._state_machine = state_machine or CaseStateMachine()
 
     def list_cases(
         self,
@@ -151,11 +148,10 @@ class CaseService:
                 raise CaseServiceError("case not found", status.HTTP_404_NOT_FOUND)
 
             current_status = case.status
-            allowed = TRANSITION_RULES.get(current_status, set())
-            if request.target_status not in allowed:
-                raise CaseServiceError(
-                    f"cannot transition from {current_status} to {request.target_status}"
-                )
+            try:
+                self._state_machine.validate(current_status, request.target_status)
+            except InvalidCaseTransition as exc:
+                raise CaseServiceError(str(exc))
 
             case.status = request.target_status
             case.updated_at = datetime.utcnow()
@@ -165,10 +161,12 @@ class CaseService:
                     event_type="status_transition",
                     actor_type=ActorType.USER,
                     actor_id=actor_id,
-                    body=(
-                        f"Status changed from {current_status.value} to {request.target_status.value}"
+                    body=self._build_transition_body(
+                        current_status, request.target_status, request.reason
                     ),
-                    metadata_json={"from": current_status.value, "to": request.target_status.value},
+                    metadata_json=self._build_transition_metadata(
+                        current_status, request.target_status, request.reason
+                    ),
                 )
             )
             session.add(
@@ -178,9 +176,27 @@ class CaseService:
                     action="transition",
                     actor_type=ActorType.USER,
                     actor_id=actor_id,
-                metadata_json={"from": current_status.value, "to": request.target_status.value},
+                    metadata_json=self._build_transition_metadata(
+                        current_status, request.target_status, request.reason
+                    ),
                 )
             )
             session.commit()
             session.refresh(case)
             return CaseRead.model_validate(case)
+
+    @staticmethod
+    def _build_transition_body(
+        current: CaseStatus, target: CaseStatus, reason: str | None
+    ) -> str:
+        base = f"Status changed from {current.value} to {target.value}"
+        return f"{base} (reason: {reason})" if reason else base
+
+    @staticmethod
+    def _build_transition_metadata(
+        current: CaseStatus, target: CaseStatus, reason: str | None
+    ) -> dict[str, str | CaseStatus]:
+        metadata = {"from": current.value, "to": target.value}
+        if reason:
+            metadata["reason"] = reason
+        return metadata

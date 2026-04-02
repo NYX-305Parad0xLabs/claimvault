@@ -79,7 +79,7 @@ async def test_viewer_denied_on_case_creation(async_client: AsyncClient, app_ins
     )
     token = login_response.json()["access_token"]
 
-    payload = {"title": "Blocked case", "claim_type": "return"}
+    payload = {"title": "Blocked case", "claim_type": "refund"}
     response = await async_client.post(
         "/api/cases/", json=payload, headers={"Authorization": f"Bearer {token}"}
     )

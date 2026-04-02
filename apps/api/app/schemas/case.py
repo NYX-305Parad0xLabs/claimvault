@@ -60,3 +60,4 @@ class CaseUpdate(SQLModel):
 
 class CaseTransitionRequest(SQLModel):
     target_status: CaseStatus
+    reason: str | None = None

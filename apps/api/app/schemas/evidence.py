@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
-from sqlmodel import SQLModel
+from sqlmodel import Field, SQLModel
 
-from app.models.claim import EvidenceKind
+from app.models.claim import EvidenceKind, ExtractionStatus
 
 
 class EvidenceRead(SQLModel):
@@ -18,6 +19,14 @@ class EvidenceRead(SQLModel):
     storage_key: str
     kind: EvidenceKind
     source_label: str | None = None
+    merchant_label: str | None = None
+    carrier_label: str | None = None
+    platform_label: str | None = None
+    event_date: datetime | None = None
+    description: str | None = None
+    manual_relevance: bool = False
+    extraction_status: ExtractionStatus
+    metadata_json: dict[str, Any] = Field(default_factory=dict)
 
     class Config:
         from_attributes = True

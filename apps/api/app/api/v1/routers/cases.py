@@ -1,6 +1,18 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from datetime import datetime
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse
 from pathlib import Path
 
@@ -15,7 +27,7 @@ from app.api.v1.deps import (
     get_timeline_service,
 )
 from app.models import WorkspaceMembership, WorkspaceRole
-from app.models.claim import CaseStatus, ClaimType, EvidenceKind
+from app.models.claim import CaseStatus, ClaimType, EvidenceKind, ExtractionStatus
 from app.schemas.audit import AuditEventRead
 from app.schemas.case import (
     CaseCreate,
@@ -160,11 +172,58 @@ def list_evidence(
         raise _handle_evidence_error(error)
 
 
+@router.get("/{case_id}/evidence/{evidence_id}", response_model=EvidenceRead)
+def get_evidence_detail(
+    case_id: int,
+    evidence_id: int,
+    workspace_member: WorkspaceMembership = Depends(get_current_workspace_member),
+    evidence_service: EvidenceService = Depends(get_evidence_service),
+) -> EvidenceRead:
+    try:
+        evidence = evidence_service.fetch_evidence(
+            workspace_member.workspace_id, case_id, evidence_id
+        )
+    except EvidenceServiceError as error:
+        raise _handle_evidence_error(error)
+    return EvidenceRead.model_validate(evidence)
+
+
+@router.delete("/{case_id}/evidence/{evidence_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_evidence(
+    case_id: int,
+    evidence_id: int,
+    reason: str | None = Query(None),
+    evidence_service: EvidenceService = Depends(get_evidence_service),
+    workspace_member: WorkspaceMembership = Depends(
+        require_workspace_role(WorkspaceRole.OWNER, WorkspaceRole.OPERATOR)
+    ),
+) -> Response:
+    try:
+        evidence_service.delete_evidence(
+            workspace_member.workspace_id,
+            case_id,
+            evidence_id,
+            actor_id=workspace_member.user_id,
+            reason=reason,
+        )
+    except EvidenceServiceError as error:
+        raise _handle_evidence_error(error)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post("/{case_id}/evidence", response_model=EvidenceRead, status_code=status.HTTP_201_CREATED)
 async def upload_evidence(
     case_id: int,
     file: UploadFile = File(...),
     kind: EvidenceKind | None = Query(None),
+    source_label: str | None = Form(None),
+    merchant_label: str | None = Form(None),
+    carrier_label: str | None = Form(None),
+    platform_label: str | None = Form(None),
+    event_date: datetime | None = Form(None),
+    description: str | None = Form(None),
+    extraction_status: ExtractionStatus | None = Form(None),
+    manual_relevance: bool = Form(False),
     evidence_service: EvidenceService = Depends(get_evidence_service),
     workspace_member: WorkspaceMembership = Depends(
         require_workspace_role(WorkspaceRole.OWNER, WorkspaceRole.OPERATOR)
@@ -179,7 +238,15 @@ async def upload_evidence(
             content,
             kind=kind,
             actor_id=workspace_member.user_id,
-            source_label="upload",
+            source_label=source_label or "upload",
+            declared_mime=file.content_type,
+            merchant_label=merchant_label,
+            carrier_label=carrier_label,
+            platform_label=platform_label,
+            event_date=event_date,
+            description=description,
+            extraction_status=extraction_status,
+            manual_relevance=manual_relevance,
         )
     except EvidenceServiceError as error:
         raise _handle_evidence_error(error)

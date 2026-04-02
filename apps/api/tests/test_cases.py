@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import pytest
 from sqlmodel import select
 
-from app.models import AuditEvent, CaseStatus, EvidenceItem, TimelineEvent
+from app.models import AuditEvent, CaseStatus, EvidenceItem, ExtractionStatus, TimelineEvent
 
 
 async def _auth_headers(async_client):
@@ -29,7 +29,7 @@ async def _auth_headers(async_client):
 async def _create_case(async_client, headers, title="Return - faulty cable"):
     payload = {
         "title": title,
-        "claim_type": "return",
+        "claim_type": "refund",
         "summary": "Cable shorted upon delivery",
     }
     response = await async_client.post("/api/cases/", json=payload, headers=headers)
@@ -66,9 +66,10 @@ async def test_valid_transition_creates_events(async_client, app_instance):
     created = await _create_case(async_client, headers)
     case_id = created["id"]
 
+    reason = "Gather proof from warehouse"
     transition_response = await async_client.post(
         f"/api/cases/{case_id}/transition",
-        json={"target_status": CaseStatus.COLLECTING_EVIDENCE},
+        json={"target_status": CaseStatus.COLLECTING_EVIDENCE, "reason": reason},
         headers=headers,
     )
     assert transition_response.status_code == 200
@@ -79,8 +80,33 @@ async def test_valid_transition_creates_events(async_client, app_instance):
         audit_events = session.exec(select(AuditEvent).where(AuditEvent.entity_id == case_id)).all()
         timeline_events = session.exec(select(TimelineEvent).where(TimelineEvent.case_id == case_id)).all()
 
-    assert any(event.metadata_json["from"] == "draft" for event in timeline_events)
+    assert any(event.metadata_json.get("reason") == reason for event in timeline_events)
     assert any(event.action == "transition" for event in audit_events)
+
+
+@pytest.mark.asyncio
+async def test_state_machine_allows_loop(async_client):
+    headers = await _auth_headers(async_client)
+    created = await _create_case(async_client, headers)
+    case_id = created["id"]
+
+    await async_client.post(
+        f"/api/cases/{case_id}/transition",
+        json={"target_status": CaseStatus.COLLECTING_EVIDENCE},
+        headers=headers,
+    )
+    resp = await async_client.post(
+        f"/api/cases/{case_id}/transition",
+        json={"target_status": CaseStatus.NEEDS_USER_INPUT},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    resp = await async_client.post(
+        f"/api/cases/{case_id}/transition",
+        json={"target_status": CaseStatus.COLLECTING_EVIDENCE},
+        headers=headers,
+    )
+    assert resp.status_code == 200
 
 
 @pytest.mark.asyncio
@@ -95,7 +121,9 @@ async def test_invalid_transition_rejected(async_client):
         headers=headers,
     )
     assert response.status_code == 400
-    assert response.json()["detail"].startswith("cannot transition")
+    detail = response.json()["detail"]
+    assert "cannot transition" in detail
+    assert "collecting_evidence" in detail
 
 
 @pytest.mark.asyncio
@@ -104,12 +132,27 @@ async def test_evidence_upload_and_hash(async_client, app_instance):
     case = await _create_case(async_client, headers)
     case_id = case["id"]
     payload = {"file": ("proof.pdf", b"%PDF-test", "application/pdf")}
+    metadata_payload = {
+        "merchant_label": "Retailer Ops",
+        "platform_label": "claimvault",
+        "manual_relevance": "true",
+        "description": "Customer receipt",
+        "event_date": datetime.utcnow().isoformat(),
+        "extraction_status": ExtractionStatus.COMPLETED.value,
+    }
     response = await async_client.post(
-        f"/api/cases/{case_id}/evidence", files=payload, headers=headers
+        f"/api/cases/{case_id}/evidence",
+        files=payload,
+        data=metadata_payload,
+        headers=headers,
     )
     assert response.status_code == 201
     data = response.json()
     assert data["sha256"] == hashlib.sha256(b"%PDF-test").hexdigest()
+    assert data["merchant_label"] == metadata_payload["merchant_label"]
+    assert data["manual_relevance"] is True
+    assert data["description"] == metadata_payload["description"]
+    assert data["extraction_status"] == ExtractionStatus.COMPLETED
 
     session_factory = app_instance.state.session_factory
     with session_factory() as session:
@@ -166,6 +209,60 @@ async def test_download_enforces_workspace_permissions(async_client):
         f"/api/cases/{case_id}/evidence/{evidence_id}/download", headers=other_headers
     )
     assert blocked.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_evidence_detail_and_delete(async_client):
+    headers = await _auth_headers(async_client)
+    case = await _create_case(async_client, headers)
+    case_id = case["id"]
+    files = {"file": ("proof.pdf", b"%PDF-test", "application/pdf")}
+    metadata_payload = {
+        "merchant_label": "Operations",
+        "manual_relevance": "true",
+        "description": "Manual receipt",
+        "event_date": datetime.utcnow().isoformat(),
+        "platform_label": "claimvault",
+        "extraction_status": ExtractionStatus.COMPLETED.value,
+    }
+    upload = await async_client.post(
+        f"/api/cases/{case_id}/evidence",
+        files=files,
+        data=metadata_payload,
+        headers=headers,
+    )
+    assert upload.status_code == 201
+    evidence_id = upload.json()["id"]
+
+    detail = await async_client.get(
+        f"/api/cases/{case_id}/evidence/{evidence_id}", headers=headers
+    )
+    assert detail.status_code == 200
+    detail_data = detail.json()
+    assert detail_data["merchant_label"] == metadata_payload["merchant_label"]
+    assert detail_data["manual_relevance"] is True
+    assert detail_data["description"] == metadata_payload["description"]
+
+    other_headers = await _auth_headers(async_client)
+    blocked = await async_client.get(
+        f"/api/cases/{case_id}/evidence/{evidence_id}", headers=other_headers
+    )
+    assert blocked.status_code == 404
+
+    deleted = await async_client.delete(
+        f"/api/cases/{case_id}/evidence/{evidence_id}",
+        headers=headers,
+        params={"reason": "cleanup"},
+    )
+    assert deleted.status_code == 204
+
+    detail_after = await async_client.get(
+        f"/api/cases/{case_id}/evidence/{evidence_id}", headers=headers
+    )
+    assert detail_after.status_code == 404
+
+    listing = await async_client.get(f"/api/cases/{case_id}/evidence", headers=headers)
+    assert all(item["id"] != evidence_id for item in listing.json())
 
 
 @pytest.mark.asyncio

@@ -5,7 +5,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Optional
 
-from sqlalchemy import JSON, Column, DateTime, Numeric
+from sqlalchemy import JSON, Boolean, Column, DateTime, Numeric, text
 from sqlmodel import Field, SQLModel
 
 
@@ -37,12 +37,19 @@ class EvidenceKind(str, Enum):
 
     RECEIPT = "receipt"
     SCREENSHOT = "screenshot"
-    EMAIL_PDF = "email_pdf"
-    TRACKING_DOC = "tracking_doc"
+    ORDER_CONFIRMATION = "order_confirmation"
+    SHIPMENT_TRACKING = "shipment_tracking"
     CHAT_EXPORT = "chat_export"
-    PHOTO = "photo"
-    NOTE = "note"
+    EMAIL_PDF = "email_pdf"
+    PRODUCT_PHOTO = "product_photo"
+    MOVE_OUT_PHOTO = "move_out_photo"
+    INVOICE = "invoice"
+    HANDWRITTEN_NOTE = "handwritten_note"
     OTHER = "other"
+
+    TRACKING_DOC = SHIPMENT_TRACKING
+    PHOTO = PRODUCT_PHOTO
+    NOTE = HANDWRITTEN_NOTE
 
 
 class ExtractionStatus(str, Enum):
@@ -173,6 +180,15 @@ class EvidenceItem(SQLModel, table=True):
     mime_type: str
     sha256: str
     size_bytes: int
+    merchant_label: Optional[str] = None
+    carrier_label: Optional[str] = None
+    platform_label: Optional[str] = None
+    event_date: Optional[datetime] = None
+    description: Optional[str] = None
+    manual_relevance: bool = Field(
+        default=False,
+        sa_column=Column(Boolean, nullable=False, server_default=text("0")),
+    )
     source_label: Optional[str] = None
     extraction_status: ExtractionStatus = Field(default=ExtractionStatus.PENDING)
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
@@ -180,6 +196,12 @@ class EvidenceItem(SQLModel, table=True):
     metadata_json: dict[str, Any] = Field(
         default_factory=dict,
         sa_column=Column(JSON, nullable=False, server_default="{}"),
+    )
+    deleted_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime))
+    deleted_by: Optional[int] = Field(
+        default=None,
+        foreign_key="user.id",
+        index=True,
     )
 
 

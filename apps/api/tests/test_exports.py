@@ -23,7 +23,7 @@ async def _auth_headers(async_client):
     return {"Authorization": f"Bearer {token}"}
 
 
-async def _create_case(async_client, headers, claim_type="return"):
+async def _create_case(async_client, headers, claim_type="refund"):
     payload = {
         "title": "Exportable case",
         "claim_type": claim_type,
