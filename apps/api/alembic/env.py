@@ -1,14 +1,18 @@
 from logging.config import fileConfig
+
 from alembic import context
-from app.core.config import settings
-from app.db.session import engine
-from sqlmodel import SQLModel
+from app.core.config import Settings
+from app.core.db import build_engine
+from app.models import metadata as models_metadata
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = SQLModel.metadata
+settings = Settings()
+engine = build_engine(settings)
+
+target_metadata = models_metadata
 
 
 def run_migrations_online() -> None:

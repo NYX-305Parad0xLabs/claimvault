@@ -5,17 +5,24 @@ WEB_DIR=apps/web
 
 install:
 	$(PY) -m pip install --upgrade pip
-	$(PY) -m pip install -e $(API_DIR)
+	$(PY) -m pip install -e "$(API_DIR)[dev]"
 	$(PNPM) install
 
-run-backend:
-	$(PY) -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+api-dev:
+	$(PY) -m uvicorn --factory apps.api.app.main:create_app --reload --host 0.0.0.0 --port 8000
+
+api-test:
+	cd $(API_DIR) && pytest
+
+api-lint:
+	cd $(API_DIR) && ruff check app tests
+
+run-backend: api-dev
 
 dev-web:
 	$(PNPM) --filter claimvault-web dev
 
-lint-backend:
-	cd $(API_DIR) && ruff check .
+lint-backend: api-lint
 
 lint-web:
 	cd $(WEB_DIR) && pnpm lint
