@@ -14,6 +14,7 @@ from typing import Any, Sequence
 from uuid import uuid4
 
 from app.models.claim import Case, EvidenceItem, TimelineEvent
+from app.services.summary_builder import CaseSummaryBuilder
 from app.storage import EvidenceStorage
 
 
@@ -47,10 +48,12 @@ class DefaultVaultPackager(VaultPackager):
     def __init__(
         self,
         evidence_storage: EvidenceStorage,
+        summary_builder: CaseSummaryBuilder,
         logger: logging.Logger | None = None,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._storage = evidence_storage
+        self._summary_builder = summary_builder
 
     def package(
         self,
@@ -77,7 +80,7 @@ class DefaultVaultPackager(VaultPackager):
         case_payload = self._serialize_case(case)
         timeline_payload = [self._serialize_timeline(event) for event in timeline]
         evidence_payload = [self._serialize_evidence(item) for item in evidence]
-        summary = self._build_summary(case, len(evidence), len(timeline))
+        summary = self._summary_builder.build_summary(case, evidence, timeline)
         records: list[tuple[str, str]] = []
         buffer = BytesIO()
         with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
@@ -186,32 +189,6 @@ class DefaultVaultPackager(VaultPackager):
             "uploaded_at": item.uploaded_at.isoformat(),
             "metadata_json": item.metadata_json,
         }
-
-    @staticmethod
-    def _build_summary(case: Case, evidence_count: int, timeline_count: int) -> str:
-        lines = [
-            f"# Case Export: {case.title}",
-            "",
-            f"- Claim ID: {case.id}",
-            f"- Claim Type: {case.claim_type.value}",
-            f"- Status: {case.status.value}",
-            f"- Merchant: {case.merchant_name or 'N/A'}",
-            f"- Counterparty: {case.counterparty_name or 'N/A'}",
-            f"- Order Reference: {case.order_reference or 'N/A'}",
-            f"- Amount: {case.amount_value} {case.amount_currency}",
-            f"- Purchase Date: {case.purchase_date.isoformat() if case.purchase_date else 'N/A'}",
-            f"- Incident Date: {case.incident_date.isoformat() if case.incident_date else 'N/A'}",
-            f"- Evidence Pieces: {evidence_count}",
-            f"- Timeline Events: {timeline_count}",
-            "",
-            "## Summary",
-            case.summary or "No summary provided.",
-            "",
-            "## Notes",
-            "- Timeline is exported sorted by timestamp.",
-            "- Evidence files are included verbatim under the `evidence/` folder.",
-        ]
-        return "\n".join(lines)
 
 
 class LiquefyPackager(VaultPackager):

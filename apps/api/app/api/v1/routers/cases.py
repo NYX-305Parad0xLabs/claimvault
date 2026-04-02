@@ -24,6 +24,7 @@ from app.api.v1.deps import (
     get_evidence_service,
     get_export_service,
     get_readiness_service,
+    get_summary_service,
     get_timeline_service,
 )
 from app.models import WorkspaceMembership, WorkspaceRole
@@ -36,6 +37,7 @@ from app.schemas.case import (
     CaseUpdate,
 )
 from app.schemas.evidence import EvidenceRead
+from app.schemas.case_summary import CaseSummaryPreview
 from app.schemas.export import CaseExportRead, CaseExportRequest
 from app.schemas.readiness import ReadinessReport
 from app.schemas.timeline import (
@@ -46,6 +48,7 @@ from app.schemas.timeline import (
 from app.services.case_service import CaseService, CaseServiceError
 from app.services.evidence_service import EvidenceService, EvidenceServiceError
 from app.services.export_service import ExportService, ExportServiceError
+from app.services.case_summary_service import CaseSummaryService, CaseSummaryServiceError
 from app.services.readiness_service import ReadinessService
 from app.services.timeline_service import TimelineService, TimelineServiceError
 from app.services.audit_service import AuditService, AuditServiceError
@@ -70,6 +73,10 @@ def _handle_export_error(error: ExportServiceError) -> HTTPException:
 
 
 def _handle_audit_error(error: AuditServiceError) -> HTTPException:
+    return HTTPException(status_code=error.status_code, detail=error.detail)
+
+
+def _handle_summary_error(error: CaseSummaryServiceError) -> HTTPException:
     return HTTPException(status_code=error.status_code, detail=error.detail)
 
 
@@ -278,6 +285,18 @@ def check_readiness(
         return readiness_service.evaluate(workspace_member.workspace_id, case_id)
     except ValueError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="case not found")
+
+
+@router.get("/{case_id}/summary-preview", response_model=CaseSummaryPreview)
+def preview_summary(
+    case_id: int,
+    summary_service: CaseSummaryService = Depends(get_summary_service),
+    workspace_member: WorkspaceMembership = Depends(get_current_workspace_member),
+) -> CaseSummaryPreview:
+    try:
+        return summary_service.preview_summary(workspace_member.workspace_id, case_id)
+    except CaseSummaryServiceError as error:
+        raise _handle_summary_error(error)
 
 
 @router.get("/{case_id}/timeline", response_model=list[TimelineEventRead])

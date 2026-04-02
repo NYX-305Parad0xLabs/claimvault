@@ -34,6 +34,7 @@ import {
   uploadEvidence,
   ReadinessReport,
   TimelineEvent,
+  fetchCaseSummaryPreview,
 } from "@/lib/api/client";
 import { claimContract } from "@/lib/contracts/claimContract";
 
@@ -180,6 +181,9 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
   const [summarySaving, setSummarySaving] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [summaryMessage, setSummaryMessage] = useState<string | null>(null);
+  const [templateSummary, setTemplateSummary] = useState<string | null>(null);
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
 
   const [noteBody, setNoteBody] = useState("");
   const [noteSubmitting, setNoteSubmitting] = useState(false);
@@ -257,6 +261,21 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
     }
   }, [caseId]);
 
+  const refreshTemplatePreview = useCallback(async () => {
+    setTemplateLoading(true);
+    setTemplateError(null);
+    try {
+      const preview = await fetchCaseSummaryPreview(caseId);
+      setTemplateSummary(preview.summary);
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Unable to load template summary";
+      setTemplateError(message);
+    } finally {
+      setTemplateLoading(false);
+    }
+  }, [caseId]);
+
   const loadCaseData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -273,12 +292,13 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
       setReadiness(report);
       setEvidenceList(evidence);
       await refreshAudit();
+      await refreshTemplatePreview();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to load case data");
     } finally {
       setLoading(false);
     }
-  }, [caseId, refreshAudit]);
+  }, [caseId, refreshAudit, refreshTemplatePreview]);
 
   useEffect(() => {
     loadCaseData();
@@ -294,6 +314,7 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
       });
       setCaseDetail(updated);
       setSummaryMessage("Summary saved.");
+      await refreshTemplatePreview();
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "Unable to save summary";
       setSummaryError(message);
@@ -540,6 +561,37 @@ export default function CaseDetailContent({ caseId }: CaseDetailContentProps) {
             />
             {summaryError && <StatusMessage variant="error">{summaryError}</StatusMessage>}
             {summaryMessage && <div className="text-sm text-slate-600">{summaryMessage}</div>}
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+              <div className="flex items-center justify-between">
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Template preview</p>
+                <button
+                  type="button"
+                  onClick={refreshTemplatePreview}
+                  disabled={templateLoading}
+                  className="rounded-2xl border border-slate-200 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500 transition hover:border-slate-900 disabled:opacity-50"
+                >
+                  {templateLoading ? "Refreshing..." : "Refresh"}
+                </button>
+              </div>
+              <div className="mt-3 min-h-[120px] rounded-2xl border border-dashed border-slate-200 bg-white/80 p-3 text-[12px] leading-relaxed text-slate-800">
+                {templateLoading && (
+                  <div className="flex items-center justify-center text-sm text-slate-500">
+                    <Loader />
+                  </div>
+                )}
+                {!templateLoading && templateError && (
+                  <StatusMessage variant="error">{templateError}</StatusMessage>
+                )}
+                {!templateLoading && !templateError && templateSummary && (
+                  <pre className="whitespace-pre-wrap text-[11px] text-slate-800">
+                    {templateSummary}
+                  </pre>
+                )}
+                {!templateLoading && !templateSummary && !templateError && (
+                  <p>Preview will appear once the template renders.</p>
+                )}
+              </div>
+            </div>
           </section>
 
           <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">

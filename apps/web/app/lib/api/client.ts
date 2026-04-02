@@ -102,6 +102,12 @@ export type CaseDetail = CaseSummary & {
   due_date?: string | null;
 };
 
+export type CaseSummaryPreview = {
+  case_id: number;
+  claim_type: string;
+  summary: string;
+};
+
 export type CaseUpdateRequest = {
   title?: string;
   summary?: string | null;
@@ -373,6 +379,10 @@ export function fetchTimeline(caseId: string) {
 
 export function fetchReadiness(caseId: string) {
   return request<ReadinessReport>(`/cases/${caseId}/readiness`);
+}
+
+export function fetchCaseSummaryPreview(caseId: string) {
+  return request<CaseSummaryPreview>(`/cases/${caseId}/summary-preview`);
 }
 
 export function fetchAuditEvents(

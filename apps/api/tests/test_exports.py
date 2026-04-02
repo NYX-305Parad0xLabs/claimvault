@@ -93,6 +93,9 @@ async def test_export_bundle_contains_expected_artifacts(async_client):
     evidence_checksum_line = next(line for line in checksums if evidence_entry in line)
     evidence_hash = evidence_checksum_line.split()[0]
     assert evidence_hash == manifest[0]["sha256"]
+    summary_content = archive.read("summary.md").decode()
+    assert "## Evidence snapshot" in summary_content
+    assert "## Refund focus" in summary_content
 
 
 @pytest.mark.asyncio

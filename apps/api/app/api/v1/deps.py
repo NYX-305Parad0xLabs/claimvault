@@ -16,6 +16,7 @@ from app.services import (
     ReadinessService,
     Services,
     TimelineService,
+    CaseSummaryService,
 )
 from app.services.auth_service import AuthError
 
@@ -54,6 +55,10 @@ def get_readiness_service(services: Services = Depends(get_services)) -> Readine
 
 def get_export_service(services: Services = Depends(get_services)) -> ExportService:
     return services.export_service
+
+
+def get_summary_service(services: Services = Depends(get_services)) -> CaseSummaryService:
+    return services.summary_service
 
 
 def get_audit_service(services: Services = Depends(get_services)) -> AuditService:

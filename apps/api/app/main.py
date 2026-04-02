@@ -13,6 +13,7 @@ from app.services import (
     AuditService,
     AuthService,
     CaseService,
+    CaseSummaryService,
     EvidenceService,
     ExportService,
     ReadinessService,
@@ -20,6 +21,7 @@ from app.services import (
     TimelineService,
 )
 from app.services.packager import DefaultVaultPackager, LiquefyPackager, VaultPackager
+from app.services.summary_builder import CaseSummaryBuilder
 from app.storage import LocalEvidenceStorage, LocalExportStorage
 
 
@@ -44,17 +46,19 @@ def create_app() -> FastAPI:
 
     evidence_storage = LocalEvidenceStorage(settings.evidence_root)
     export_storage = LocalExportStorage(settings.export_root)
+    summary_builder = CaseSummaryBuilder()
     packager: VaultPackager
     if settings.vault_packager.lower() == "liquefy":
         packager = LiquefyPackager(logger)
     else:
-        packager = DefaultVaultPackager(evidence_storage, logger)
+        packager = DefaultVaultPackager(evidence_storage, summary_builder, logger)
     services = Services(
         audit_service=AuditService(session_factory, logger),
         case_service=CaseService(session_factory, logger),
         auth_service=AuthService(session_factory, settings, logger),
         evidence_service=EvidenceService(session_factory, evidence_storage, settings, logger),
         export_service=ExportService(session_factory, export_storage, packager, logger),
+        summary_service=CaseSummaryService(session_factory, summary_builder),
         timeline_service=TimelineService(session_factory, logger),
         readiness_service=ReadinessService(session_factory, logger),
     )
