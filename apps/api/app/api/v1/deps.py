@@ -5,7 +5,7 @@ from typing import Generator
 from fastapi import Depends, Request
 from sqlmodel import Session
 
-from app.services import ClaimService, Services
+from app.services import CaseService, Services
 
 
 def get_session(request: Request) -> Generator[Session, None, None]:
@@ -18,5 +18,5 @@ def get_services(request: Request) -> Services:
     return request.app.state.services
 
 
-def get_claim_service(services: Services = Depends(get_services)) -> ClaimService:
-    return services.claim_service
+def get_case_service(services: Services = Depends(get_services)) -> CaseService:
+    return services.case_service
