@@ -1,5 +1,6 @@
 import hashlib
 import uuid
+from datetime import datetime, timedelta
 
 import pytest
 from sqlmodel import select
@@ -11,19 +12,17 @@ async def _auth_headers(async_client):
     suffix = uuid.uuid4().hex[:8]
     email = f"user-{suffix}@example.com"
     password = f"Pass!{suffix}"
-    register_payload = {
+    payload = {
         "email": email,
         "password": password,
         "full_name": "Ops User",
         "workspace_name": f"Ops-{suffix}",
     }
-    register_response = await async_client.post("/api/auth/register", json=register_payload)
-    assert register_response.status_code == 201
+    register = await async_client.post("/api/auth/register", json=payload)
+    assert register.status_code == 201
 
-    login_response = await async_client.post(
-        "/api/auth/login", json={"email": email, "password": password}
-    )
-    token = login_response.json()["access_token"]
+    login = await async_client.post("/api/auth/login", json={"email": email, "password": password})
+    token = login.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -167,3 +166,89 @@ async def test_download_enforces_workspace_permissions(async_client):
         f"/api/cases/{case_id}/evidence/{evidence_id}/download", headers=other_headers
     )
     assert blocked.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_add_note_and_timeline_order(async_client):
+    headers = await _auth_headers(async_client)
+    case = await _create_case(async_client, headers)
+    case_id = case["id"]
+
+    note_resp = await async_client.post(
+        f"/api/cases/{case_id}/notes",
+        json={"body": "First note", "event_type": "note", "note_type": "manual"},
+        headers=headers,
+    )
+    assert note_resp.status_code == 201
+
+    payload = {
+        "body": "Manual check",
+        "event_type": "inspection",
+        "happened_at": (datetime.utcnow() - timedelta(minutes=5)).isoformat(),
+    }
+    manual_resp = await async_client.post(
+        f"/api/cases/{case_id}/timeline-events", json=payload, headers=headers
+    )
+    assert manual_resp.status_code == 201
+
+    timeline = await async_client.get(f"/api/cases/{case_id}/timeline", headers=headers)
+    events = timeline.json()
+    assert len(events) >= 2
+    assert events[0]["event_type"] == "inspection"
+    assert events[-1]["event_type"] == "note"
+
+
+@pytest.mark.asyncio
+async def test_note_correction_appends_event(async_client):
+    headers = await _auth_headers(async_client)
+    case = await _create_case(async_client, headers)
+    case_id = case["id"]
+
+    note = await async_client.post(
+        f"/api/cases/{case_id}/notes",
+        json={"body": "Draft note", "event_type": "note"},
+        headers=headers,
+    )
+    note_id = note.json()["id"]
+
+    correction = await async_client.post(
+        f"/api/cases/{case_id}/notes",
+        json={
+            "body": "Corrected note",
+            "event_type": "note",
+            "corrects_event_id": note_id,
+        },
+        headers=headers,
+    )
+    assert correction.status_code == 201
+    assert correction.json()["metadata_json"]["corrects_event_id"] == note_id
+
+    timeline = await async_client.get(f"/api/cases/{case_id}/timeline", headers=headers)
+    events = [e for e in timeline.json() if e["event_type"] == "note"]
+    assert len(events) == 2
+
+
+@pytest.mark.asyncio
+async def test_timeline_event_attached_to_evidence(async_client):
+    headers = await _auth_headers(async_client)
+    case = await _create_case(async_client, headers)
+    case_id = case["id"]
+
+    evidence = await async_client.post(
+        f"/api/cases/{case_id}/evidence",
+        files={"file": ("attach.txt", b"content", "text/plain")},
+        headers=headers,
+    )
+    evidence_id = evidence.json()["id"]
+
+    event_payload = {
+        "body": "Linked evidence",
+        "event_type": "inspection",
+        "metadata": {"note": "linked"},
+        "evidence_id": evidence_id,
+    }
+    response = await async_client.post(
+        f"/api/cases/{case_id}/timeline-events", json=event_payload, headers=headers
+    )
+    assert response.status_code == 201
+    assert response.json()["evidence_id"] == evidence_id

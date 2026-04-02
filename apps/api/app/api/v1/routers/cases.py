@@ -8,6 +8,7 @@ from app.api.v1.deps import (
     get_current_workspace_member,
     require_workspace_role,
     get_evidence_service,
+    get_timeline_service,
 )
 from app.models import WorkspaceMembership, WorkspaceRole
 from app.models.claim import CaseStatus, ClaimType
@@ -18,8 +19,14 @@ from app.schemas.case import (
     CaseUpdate,
 )
 from app.schemas.evidence import EvidenceRead
+from app.schemas.timeline import (
+    TimelineEventCreate,
+    TimelineEventRead,
+    TimelineNoteCreate,
+)
 from app.services.case_service import CaseService, CaseServiceError
 from app.services.evidence_service import EvidenceService, EvidenceServiceError
+from app.services.timeline_service import TimelineService, TimelineServiceError
 
 router = APIRouter(prefix="/cases", tags=["cases"])
 
@@ -29,6 +36,10 @@ def _handle_case_error(error: CaseServiceError) -> HTTPException:
 
 
 def _handle_evidence_error(error: EvidenceServiceError) -> HTTPException:
+    return HTTPException(status_code=error.status_code, detail=error.detail)
+
+
+def _handle_timeline_error(error: TimelineServiceError) -> HTTPException:
     return HTTPException(status_code=error.status_code, detail=error.detail)
 
 
@@ -159,3 +170,55 @@ def download_evidence(
     except EvidenceServiceError as error:
         raise _handle_evidence_error(error)
     return FileResponse(path, media_type=evidence.mime_type, filename=evidence.original_filename)
+
+
+@router.get("/{case_id}/timeline", response_model=list[TimelineEventRead])
+def get_timeline(
+    case_id: int,
+    workspace_member: WorkspaceMembership = Depends(get_current_workspace_member),
+    timeline_service: TimelineService = Depends(get_timeline_service),
+) -> list[TimelineEventRead]:
+    try:
+        return timeline_service.list_events(workspace_member.workspace_id, case_id)
+    except TimelineServiceError as error:
+        raise _handle_timeline_error(error)
+
+
+@router.post("/{case_id}/timeline-events", response_model=TimelineEventRead, status_code=status.HTTP_201_CREATED)
+def create_timeline_event(
+    case_id: int,
+    payload: TimelineEventCreate,
+    timeline_service: TimelineService = Depends(get_timeline_service),
+    workspace_member: WorkspaceMembership = Depends(
+        require_workspace_role(WorkspaceRole.OWNER, WorkspaceRole.OPERATOR)
+    ),
+) -> TimelineEventRead:
+    try:
+        return timeline_service.create_event(
+            workspace_member.workspace_id,
+            case_id,
+            payload,
+            actor_id=workspace_member.user_id,
+        )
+    except TimelineServiceError as error:
+        raise _handle_timeline_error(error)
+
+
+@router.post("/{case_id}/notes", response_model=TimelineEventRead, status_code=status.HTTP_201_CREATED)
+def create_note(
+    case_id: int,
+    payload: TimelineNoteCreate,
+    timeline_service: TimelineService = Depends(get_timeline_service),
+    workspace_member: WorkspaceMembership = Depends(
+        require_workspace_role(WorkspaceRole.OWNER, WorkspaceRole.OPERATOR)
+    ),
+) -> TimelineEventRead:
+    try:
+        return timeline_service.create_note(
+            workspace_member.workspace_id,
+            case_id,
+            payload,
+            actor_id=workspace_member.user_id,
+        )
+    except TimelineServiceError as error:
+        raise _handle_timeline_error(error)

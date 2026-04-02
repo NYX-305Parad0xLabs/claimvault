@@ -129,6 +129,7 @@ class TimelineEvent(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     case_id: int = Field(foreign_key="case.id", index=True)
+    evidence_id: Optional[int] = Field(default=None, foreign_key="evidenceitem.id", index=True)
     event_type: str
     happened_at: datetime = Field(default_factory=datetime.utcnow)
     actor_type: ActorType

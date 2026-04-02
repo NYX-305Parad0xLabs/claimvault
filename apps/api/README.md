@@ -10,6 +10,13 @@ This FastAPI application exposes the case ingestion, workflow, and authenticatio
 
 Protected routes require the `Authorization: Bearer <token>` header. The test secret and token lifetime are configured via `SECRET_KEY`, `ACCESS_TOKEN_EXPIRE_MINUTES`, and `TOKEN_ALGORITHM`.
 
+## Case Timeline & Notes
+
+- `GET /api/cases/{id}/timeline`: fetch the append-only timeline ordered by `happened_at`.
+- `POST /api/cases/{id}/timeline-events`: append manual events (status checks, audits, or evidence links); owner/operator roles only.
+- `POST /api/cases/{id}/notes`: add or correct user-created note entries (immutable history, corrections tracked via `corrects_event_id` metadata).
+- Timeline entries can reference evidence (optional `evidence_id`) and each write generates a matching audit record.
+
 ## Running locally
 1. Copy `.env.example` to `.env` and adjust values (especially `SECRET_KEY` and `DATABASE_URL`).
 2. `python -m pip install -e .[dev]` to install the API and dev dependencies in editable mode.
